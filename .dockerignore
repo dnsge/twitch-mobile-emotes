@@ -1,0 +1,7 @@
+.git
+.idea
+.gitignore
+.dockerignore
+*.md
+LICENSE
+nginx

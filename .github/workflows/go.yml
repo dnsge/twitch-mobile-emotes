@@ -30,4 +30,4 @@ jobs:
           fi
 
       - name: Build
-        run: go build -v ./cmd/leap
+        run: go build -v ./cmd/emote-server

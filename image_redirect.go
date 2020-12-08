@@ -21,7 +21,7 @@ func getSizeFromString(text string) (emotes.ImageSize, error) {
 	}
 }
 
-func handleEmoticonRequest(w http.ResponseWriter, r *http.Request) {
+func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes.EmoteStore) {
 	// URL is in format of "/emoticons/v1/<id>/<size>
 	parts := strings.Split(r.URL.Path, "/")
 	id := parts[3]
@@ -37,10 +37,22 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request) {
 		id = id[1:]
 		switch code {
 		case 'b':
-			http.Redirect(w, r, emotes.FormatBTTVEmote(id, size), http.StatusMovedPermanently)
+			e, found := store.FindBttvEmote(id)
+			if found {
+				http.Redirect(w, r, e.URL(size), http.StatusFound)
+			} else {
+				log.Printf("Requested BTTV emote %q but wasn't found\n", id)
+				http.NotFound(w, r)
+			}
 			return
 		case 'f':
-			http.Redirect(w, r, emotes.FormatFFZEmote(id, size), http.StatusMovedPermanently)
+			e, found := store.FindFfzEmote(id)
+			if found {
+				http.Redirect(w, r, e.URL(size), http.StatusFound)
+			} else {
+				log.Printf("Requested FFZ emote %q but wasn't found\n", id)
+				http.NotFound(w, r)
+			}
 			return
 		}
 	}

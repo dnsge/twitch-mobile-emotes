@@ -29,16 +29,18 @@ var upgrader = websocket.Upgrader{
 }
 
 type WsForwarder struct {
-	emoteStore *emotes.EmoteStore
-	userIDs    map[string]string
-	ctx        context.Context
+	emoteStore  *emotes.EmoteStore
+	userIDs     map[string]string
+	includeGifs bool
+	ctx         context.Context
 }
 
-func NewWsForwarder(store *emotes.EmoteStore, ctx context.Context) *WsForwarder {
+func NewWsForwarder(store *emotes.EmoteStore, includeGifs bool, ctx context.Context) *WsForwarder {
 	return &WsForwarder{
-		emoteStore: store,
-		userIDs:    make(map[string]string),
-		ctx:        ctx,
+		emoteStore:  store,
+		userIDs:     make(map[string]string),
+		includeGifs: includeGifs,
+		ctx:         ctx,
 	}
 }
 
@@ -143,7 +145,7 @@ func (f *WsForwarder) handleMessage(conn *websocket.Conn, mt int, body string) (
 			}
 		}
 
-		if err := f.injectThirdPartyEmotes(msg, channelID); err != nil {
+		if err := f.injectThirdPartyEmotes(msg, channelID, f.includeGifs); err != nil {
 			return false, fmt.Errorf("inject emotes: %w", err)
 		}
 
@@ -165,7 +167,7 @@ func (f *WsForwarder) handleMessage(conn *websocket.Conn, mt int, body string) (
 	return false, nil
 }
 
-func (f *WsForwarder) injectThirdPartyEmotes(msg *irc.Message, channelID string) error {
+func (f *WsForwarder) injectThirdPartyEmotes(msg *irc.Message, channelID string, includeGifs bool) error {
 	messageBody := msg.Trailing()
 	emoteTag, err := irc.NewEmoteTag(msg.Tags["emotes"])
 	if err != nil {
@@ -176,7 +178,9 @@ func (f *WsForwarder) injectThirdPartyEmotes(msg *irc.Message, channelID string)
 	for _, word := range strings.Split(messageBody, " ") {
 		wordLen := utf8.RuneCountInString(word) // UTF-8 so emojis don't mess up
 		if e, found := f.emoteStore.GetEmoteFromWord(word, channelID); found {
-			emoteTag.Add(e.LetterCode()+e.EmoteID(), [2]int{i, i + wordLen - 1})
+			if includeGifs || e.Type() != "gif" {
+				emoteTag.Add(e.LetterCode()+e.EmoteID(), [2]int{i, i + wordLen - 1})
+			}
 		}
 		i += wordLen + 1
 	}

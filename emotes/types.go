@@ -21,6 +21,10 @@ func (b *BttvEmote) LetterCode() string {
 	return "b"
 }
 
+func (b *BttvEmote) Type() string {
+	return b.ImageType
+}
+
 type FfzUrls struct {
 	One  string `json:"1x"`
 	Two  string `json:"2x"`
@@ -42,8 +46,13 @@ func (f *FfzEmote) LetterCode() string {
 	return "f"
 }
 
+func (f *FfzEmote) Type() string {
+	return f.ImageType
+}
+
 type Emote interface {
 	EmoteID() string
 	URL(size ImageSize) string
 	LetterCode() string
+	Type() string
 }

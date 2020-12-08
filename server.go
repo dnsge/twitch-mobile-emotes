@@ -11,6 +11,7 @@ type ServerConfig struct {
 	Address       string
 	WebsocketHost string
 	EmoticonHost  string
+	ExcludeGifs   bool
 	Context       context.Context
 }
 
@@ -36,7 +37,7 @@ func handleRequest(cfg *ServerConfig) http.HandlerFunc {
 		log.Fatalln(err)
 	}
 
-	manager := NewWsForwarder(store, cfg.Context)
+	manager := NewWsForwarder(store, !cfg.ExcludeGifs, cfg.Context)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Host == cfg.WebsocketHost {
 			manager.HandleWsConnection(w, r)

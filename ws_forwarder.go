@@ -57,8 +57,8 @@ func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	log.Println("Client connected")
 	wg := sync.WaitGroup{}
-
 	wg.Add(2)
 	go func() { // read from proxy and write to twitch
 		defer wg.Done()
@@ -122,6 +122,7 @@ func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request)
 	}()
 
 	wg.Wait()
+	log.Println("Client disconnected")
 }
 
 // returns whether the message was passed on and an error

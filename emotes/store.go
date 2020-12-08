@@ -1,7 +1,6 @@
 package emotes
 
 import (
-	"log"
 	"strconv"
 	"sync"
 	"time"
@@ -162,7 +161,6 @@ func (s *EmoteStore) updateWordMap(channelID string) {
 	}
 
 	s.wordMaps[channelID] = wordMap
-	log.Printf("Updated word map for %s: %v\n", channelID, wordMap)
 }
 
 func (s *EmoteStore) GetEmoteFromWord(word, channelID string) (Emote, bool) {

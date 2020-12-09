@@ -5,6 +5,7 @@ import (
 	"github.com/dnsge/twitch-mobile-emotes/irc"
 	"github.com/gorilla/websocket"
 	"log"
+	"net"
 	"strings"
 	"sync"
 )
@@ -196,5 +197,9 @@ func (s *wsSession) writeRawTwitchMessage(mt int, msg []byte) bool {
 
 func isCloseError(err error) bool {
 	_, ok := err.(*websocket.CloseError)
+	if ok {
+		return true
+	}
+	_, ok = err.(*net.OpError)
 	return ok
 }

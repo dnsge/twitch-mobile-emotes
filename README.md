@@ -4,6 +4,25 @@ An HTTP server that intercepts and modifies Twitch's IRC-over-WebSockets chat an
 
 You must run this program behind some reverse proxy that can apply SSL certificates for the domains `static-cdn.jtvnw.net` and `irc-ws.chat.twitch.tv`. I choose to use a self-signed certificate that is trusted on my devices. See the `nginx` folder for an example.
 
+By using a tool like PiHole, you can create custom A records that will point both `static-cdn.jtvnw.net` and `irc-ws.chat.twitch.tv` to the IP of the emote server on your local network or behind on a VPN.
+
+## How it works
+
+This program intercepts every chat message between you and Twitch and checks the text for a custom emote. If a custom emote is found, it modifies the message's `@emotes` tag to include the custom emote with a unique ID.
+
+For instance, say the server detects the FrankerFaceZ `OMEGALUL` emote with ID `128054` at index `0-7`.`
+
+The server modifies the emotes tag to include an emote that starts with the letter `f` (or the letter `b` in the case of BTTV emotes), as such:
+
+`... @emotes=f128054:0-7 ... :OMEGALUL`
+
+Normally, the mobile app makes a request in the form of `https://static-cdn.jtvnw.net/emoticons/v1/<emote id>` to load the image. 
+
+However,
+when the unknowing client makes a request to `https://static-cdn.jtvnw.net/emoticons/v1/f128054`, nginx detects the custom emote from the first character and forwards the request to the emote server, which then returns a `302 Found` code to the emote image.
+
+Real Twitch emotes that start with a digit instead of a `f` or `b` are passed on to the real `static-cdn.jtvnw.net` by nginx.
+
 ## Building
 
 Build from source

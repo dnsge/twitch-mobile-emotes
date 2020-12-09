@@ -16,10 +16,17 @@ The server modifies the emotes tag to include an emote that starts with the lett
 
 `... @emotes=f128054:0-7 ... :OMEGALUL`
 
-Normally, the mobile app makes a request in the form of `https://static-cdn.jtvnw.net/emoticons/v1/<emote id>` to load the image. 
+Normally, the mobile app makes a request in the form of 
 
-However,
-when the unknowing client makes a request to `https://static-cdn.jtvnw.net/emoticons/v1/f128054`, nginx detects the custom emote from the first character and forwards the request to the emote server, which then returns a `302 Found` code to the emote image.
+`https://static-cdn.jtvnw.net/emoticons/v1/<emote id>/<size>` 
+
+to load the image. 
+
+However, when the unknowing client makes a request to 
+
+`https://static-cdn.jtvnw.net/emoticons/v1/f128054/4.0`
+
+nginx detects the custom emote from the first character and forwards the request to the emote server, which then returns a `302 Found` code to the emote image.
 
 Real Twitch emotes that start with a digit instead of a `f` or `b` are passed on to the real `static-cdn.jtvnw.net` by nginx.
 

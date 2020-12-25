@@ -31,6 +31,9 @@ func main() {
 	wsHost := flag.String("ws-host", "irc-ws.proxy", "Host header to expect from Websocket IRC requests")
 	emHost := flag.String("emoticon-host", "emoticon.proxy", "Host header to expect from Emoticon requests")
 	excludeGifs := flag.Bool("no-gifs", false, "Disable showing gif emotes")
+	cachePath := flag.String("cache", "", "Path to cache files (leave empty to disable)")
+	highRes := flag.Bool("high-res", true, "Whether to always use high-resolution emotes")
+	purge := flag.Bool("purge", false, "Purge cache on startup")
 	flag.Parse()
 
 	ctx := signalInterrupterContext()
@@ -39,6 +42,9 @@ func main() {
 		WebsocketHost: *wsHost,
 		EmoticonHost:  *emHost,
 		ExcludeGifs:   *excludeGifs,
+		CachePath:     *cachePath,
+		HighRes:       *highRes,
+		Purge:         *purge,
 		Context:       ctx,
 	})
 

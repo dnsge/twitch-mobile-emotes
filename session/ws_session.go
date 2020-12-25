@@ -28,7 +28,8 @@ type wsSession struct {
 	emoteStore  *emotes.EmoteStore
 	includeGifs bool
 
-	greeted bool
+	username string
+	greeted  bool
 }
 
 func (s *wsSession) run() {

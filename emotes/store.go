@@ -67,7 +67,16 @@ func (s *EmoteStore) LoadIfNotLoaded(channelID string) error {
 			return nil
 		}
 	}
+	return s.load(channelID)
+}
 
+func (s *EmoteStore) Load(channelID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.load(channelID)
+}
+
+func (s *EmoteStore) load(channelID string) error {
 	bttv, err := GetChannelBTTVEmotes(channelID)
 	if err != nil {
 		return err

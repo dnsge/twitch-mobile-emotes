@@ -46,13 +46,19 @@ $ docker pull docker.pkg.github.com/dnsge/twitch-mobile-emotes/twitch-mobile-emo
 ```
 Usage of emote-server:
   -address string
-    	Bind address (default "0.0.0.0:8080")
+        Bind address (default "0.0.0.0:8080")
+  -cache string
+        Path to cache files (leave empty to disable)
   -emoticon-host string
-    	Host header to expect from Emoticon requests (default "emoticon.proxy")
+        Host header to expect from Emoticon requests (default "static-cdn.jtvnw.net")
+  -high-res
+        Whether to always use high-resolution emotes (default true)
   -no-gifs
-    	Disable showing gif emotes
+        Disable showing gif emotes
+  -purge
+        Purge cache on startup
   -ws-host string
-    	Host header to expect from Websocket IRC requests (default "irc-ws.proxy")
+        Host header to expect from Websocket IRC requests (default "irc-ws.chat.twitch.tv")
 ```
 
 `emote-server` checks `Host` headers to determine which handler HTTP requests should be sent to (either emote CDN or IRC WS). 

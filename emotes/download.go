@@ -10,10 +10,12 @@ import (
 	"image/gif"
 	"image/png"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +28,52 @@ var (
 		ImageSizeLarge:  112,
 	}
 )
+
+var idealGifFrames map[string]int = nil
+
+func InitIdealGifFrames(path string) {
+	idealGifFrames = make(map[string]int)
+
+	f, err := os.Open(path)
+	if err != nil {
+		log.Fatalf("Open ideal gif file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		log.Fatalf("Read ideal gif file: %v\n", err)
+		return
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for n, l := range lines {
+		if len(l) == 0 || l[0] == '#' { // empty line or comment
+			continue
+		}
+
+		if comment := strings.Index(l, "#"); comment != -1 {
+			l = l[:comment]
+		}
+
+		l = strings.Trim(l, " \t\r")
+		parts := strings.Split(l, ":")
+		if len(parts) != 3 {
+			log.Printf("Warning: invalid ideal gif encoding on line %d\n", n)
+			continue
+		}
+
+		val, err := strconv.Atoi(parts[2])
+		if err != nil {
+			log.Printf("Warning: invalid interger value on line %d %q\n", n, parts[2])
+			continue
+		}
+
+		idealGifFrames[parts[0] + ":" + parts[1]] = val
+	}
+	fmt.Println(idealGifFrames)
+}
 
 func DownloadEmote(emote Emote, size ImageSize) ([]byte, error) {
 	url := emote.URL(size)
@@ -84,20 +132,14 @@ func processImage(img image.Image, size ImageSize) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-var (
-	idealGifFrames = map[string]int{
-		"b:5fa0159a40eb9502e2239963": 17, // modCheck
-		"b:5df0742ee7df1277b6070125": 3,  // TriFi
-		"b:5fa179c2710f8302f0c9e09e": 5,  // monkaX
-		"b:5fa1f21e6f583802e38a7f29": 29, // WAYTOODANK
-		"b:5fafdb852d853564472d6b70": 6,  // FeelsLateMan
-	}
-)
-
 func selectGifFrame(emote Emote, g *gif.GIF) image.Image {
 	key := emote.LetterCode() + ":" + emote.EmoteID()
-	// frame number will be the found value or zero
-	return getGifFrame(g, idealGifFrames[key])
+	if idealGifFrames == nil {
+		return getGifFrame(g, 0)
+	} else {
+		// frame number will be the found value or zero
+		return getGifFrame(g, idealGifFrames[key])
+	}
 }
 
 func getGifFrame(g *gif.GIF, stopFrame int) image.Image {

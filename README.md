@@ -53,6 +53,8 @@ Usage of emote-server:
         Host header to expect from Emoticon requests (default "static-cdn.jtvnw.net")
   -high-res
         Whether to always use high-resolution emotes (default true)
+  -ideal-gifs string
+        Path to ideal gif frames file (leave empty to disable, only works with file cache)
   -no-gifs
         Disable showing gif emotes
   -purge
@@ -66,3 +68,23 @@ Usage of emote-server:
 Use the `--emoticon-host` and `--ws-host` flags to tell the server what to expect.
 
 If you want to disable gif emotes, as they don't properly render on mobile, pass the `--no-gifs` flag.
+
+
+### ideal-gifs
+By default, Twitch displays the first frame of a GIF emote, which sometimes is empty/incomplete. The ideal-gifs file allows for the specification of which frame to use for a GIF emote.
+
+_Note: frames are indexed starting at 0._
+
+File format:
+```text
+# Comment
+<letter code>:<id>:<frame index>
+
+<letter code>:<id>:<frame index> # End of line comment
+```
+
+For example,
+```text
+b:5fa179c2710f8302f0c9e09e:5 # monkaX Christmas Emote
+```
+will render the `monkaX` BTTV GIF emote (christmas version) on the 5th frame.

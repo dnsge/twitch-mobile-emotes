@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/dnsge/twitch-mobile-emotes"
+	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"log"
 	"os"
 	"os/signal"
@@ -34,7 +35,12 @@ func main() {
 	cachePath := flag.String("cache", "", "Path to cache files (leave empty to disable)")
 	highRes := flag.Bool("high-res", true, "Whether to always use high-resolution emotes")
 	purge := flag.Bool("purge", false, "Purge cache on startup")
+	idealGifsFile := flag.String("ideal-gifs", "", "Path to ideal gif frames file (leave empty to disable)")
 	flag.Parse()
+
+	if *idealGifsFile != "" {
+		emotes.InitIdealGifFrames(*idealGifsFile)
+	}
 
 	ctx := signalInterrupterContext()
 	server := tme.MakeServer(&tme.ServerConfig{

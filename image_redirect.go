@@ -14,7 +14,7 @@ func getSizeFromString(text string) (emotes.ImageSize, error) {
 		return emotes.ImageSizeSmall, nil
 	case "2.0":
 		return emotes.ImageSizeMedium, nil
-	case "4.0":
+	case "3.0":
 		return emotes.ImageSizeLarge, nil
 	default:
 		return -1, fmt.Errorf("Unknown image size %s\n", text)

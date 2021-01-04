@@ -26,13 +26,15 @@ var upgrader = websocket.Upgrader{
 
 type WsForwarder struct {
 	emoteStore  *emotes.EmoteStore
+	imageCache  *emotes.ImageFileCache
 	includeGifs bool
 	ctx         context.Context
 }
 
-func NewWsForwarder(store *emotes.EmoteStore, includeGifs bool, ctx context.Context) *WsForwarder {
+func NewWsForwarder(store *emotes.EmoteStore, imageCache *emotes.ImageFileCache, includeGifs bool, ctx context.Context) *WsForwarder {
 	return &WsForwarder{
 		emoteStore:  store,
+		imageCache:  imageCache,
 		includeGifs: includeGifs,
 		ctx:         ctx,
 	}
@@ -54,6 +56,6 @@ func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request)
 	}
 
 	log.Println("Client connected")
-	session.RunWsSession(conn, twitchConn, f.emoteStore, f.includeGifs)
+	session.RunWsSession(conn, twitchConn, f.emoteStore, f.imageCache, f.includeGifs)
 	log.Println("Client disconnected")
 }

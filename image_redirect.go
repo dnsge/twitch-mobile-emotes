@@ -45,9 +45,27 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes
 		size = s
 	}
 
-	if len(id) > 1 {
+	if len(id) > 2 {
 		code := id[0]
 		id = id[1:]
+
+		isVirtual := code == 'v'
+		var half emotes.VirtualHalf = -1
+		if isVirtual {
+			// At this point, 'id' is in the form of [l/r][emote_type][emote_id]
+			switch id[0] {
+			case 'l':
+				half = emotes.LeftHalf
+			case 'r':
+				half = emotes.RightHalf
+			default:
+				log.Printf("Requested Virtual emote with unknown side %q\n", id[0])
+				http.NotFound(w, r)
+				return
+			}
+			code = id[1]
+			id = id[2:]
+		}
 
 		var emote emotes.Emote
 		switch code {
@@ -79,7 +97,14 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes
 			http.Redirect(w, r, emote.URL(size), http.StatusFound)
 		} else { // use our own cache
 			w.Header().Set("Content-Type", "image/png")
-			err := cache.GetCachedOrDownload(emote, emotes.ImageSizeLarge, w)
+
+			var err error
+			if isVirtual {
+				err = cache.GetCachedOrDownloadHalf(emote, size, half, w)
+			} else {
+				err = cache.GetCachedOrDownload(emote, size, w)
+			}
+
 			if err != nil {
 				log.Printf("Error downloading emote: %v\n", err)
 				w.WriteHeader(http.StatusBadRequest)

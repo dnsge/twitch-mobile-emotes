@@ -16,7 +16,7 @@ func (s *wsSession) handleTwitchMessage(msg *irc.Message) (bool, error) {
 			return false, fmt.Errorf("missing user id tag for %q", msg.Params[0])
 		}
 
-		if err := injectThirdPartyEmotes(s.emoteStore, msg, channelID, s.includeGifs); err != nil {
+		if err := injectThirdPartyEmotes(s.emoteStore, s.imageCache, msg, channelID, s.includeGifs); err != nil {
 			return false, fmt.Errorf("inject emotes: %w", err)
 		}
 

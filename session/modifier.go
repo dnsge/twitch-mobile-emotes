@@ -7,7 +7,10 @@ import (
 	"unicode/utf8"
 )
 
-func injectThirdPartyEmotes(emoteStore *emotes.EmoteStore, msg *irc.Message, channelID string, includeGifs bool) error {
+const leftPrefix = "vl"
+const rightPrefix = "vr"
+
+func injectThirdPartyEmotes(emoteStore *emotes.EmoteStore, imageCache *emotes.ImageFileCache, msg *irc.Message, channelID string, includeGifs bool) error {
 	messageBody := msg.Trailing()
 	emoteTag, err := irc.NewEmoteTag(msg.Tags["emotes"])
 	if err != nil {
@@ -19,7 +22,17 @@ func injectThirdPartyEmotes(emoteStore *emotes.EmoteStore, msg *irc.Message, cha
 		wordLen := utf8.RuneCountInString(word) // UTF-8 so emojis don't mess up
 		if e, found := emoteStore.GetEmoteFromWord(word, channelID); found {
 			if includeGifs || e.Type() != "gif" {
-				emoteTag.Add(e.LetterCode()+e.EmoteID(), [2]int{i, i + wordLen - 1})
+				ratio, err := imageCache.GetEmoteAspectRatio(e)
+				if err != nil {
+					return err
+				}
+
+				if isWide(ratio) && wordLen >= 3 {
+					emoteTag.Add(leftPrefix+e.LetterCode()+e.EmoteID(), [2]int{i, i + 1})
+					emoteTag.Add(rightPrefix+e.LetterCode()+e.EmoteID(), [2]int{i + 2, i + wordLen - 1})
+				} else {
+					emoteTag.Add(e.LetterCode()+e.EmoteID(), [2]int{i, i + wordLen - 1})
+				}
 			}
 		}
 		i += wordLen + 1
@@ -27,4 +40,8 @@ func injectThirdPartyEmotes(emoteStore *emotes.EmoteStore, msg *irc.Message, cha
 
 	msg.Tags["emotes"] = emoteTag.TagValue()
 	return nil
+}
+
+func isWide(ratio float64) bool {
+	return ratio >= 1.75
 }

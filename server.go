@@ -57,7 +57,7 @@ func handleRequest(cfg *ServerConfig) http.HandlerFunc {
 		go cache.AutoEvict(cfg.Context)
 	}
 
-	manager := NewWsForwarder(store, !cfg.ExcludeGifs, cfg.Context)
+	manager := NewWsForwarder(store, cache, !cfg.ExcludeGifs, cfg.Context)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Host == cfg.WebsocketHost {
 			manager.HandleWsConnection(w, r)

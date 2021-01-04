@@ -10,11 +10,12 @@ import (
 	"sync"
 )
 
-func RunWsSession(clientConn, twitchConn *websocket.Conn, emoteStore *emotes.EmoteStore, includeGifs bool) {
+func RunWsSession(clientConn, twitchConn *websocket.Conn, emoteStore *emotes.EmoteStore, imageCache *emotes.ImageFileCache, includeGifs bool) {
 	session := &wsSession{
 		clientConn:  clientConn,
 		twitchConn:  twitchConn,
 		emoteStore:  emoteStore,
+		imageCache:  imageCache,
 		includeGifs: includeGifs,
 
 		greeted: false,
@@ -26,6 +27,7 @@ type wsSession struct {
 	clientConn  *websocket.Conn
 	twitchConn  *websocket.Conn
 	emoteStore  *emotes.EmoteStore
+	imageCache  *emotes.ImageFileCache
 	includeGifs bool
 
 	username string

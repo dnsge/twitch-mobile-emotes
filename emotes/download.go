@@ -1,83 +1,23 @@
 package emotes
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"github.com/disintegration/imaging"
 	"image"
-	"image/draw"
 	"image/gif"
 	"image/png"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 )
 
-var (
-	emoteSizeMap = map[ImageSize]int{
-		ImageSizeSmall:  28,
-		ImageSizeMedium: 56,
-		ImageSizeLarge:  112,
-	}
-)
-
-var idealGifFrames map[string]int = nil
-
-func InitIdealGifFrames(path string) {
-	idealGifFrames = make(map[string]int)
-
-	f, err := os.Open(path)
-	if err != nil {
-		log.Fatalf("Open ideal gif file: %v\n", err)
-		return
-	}
-	defer f.Close()
-
-	data, err := ioutil.ReadAll(f)
-	if err != nil {
-		log.Fatalf("Read ideal gif file: %v\n", err)
-		return
-	}
-
-	lines := strings.Split(string(data), "\n")
-	for n, l := range lines {
-		if len(l) == 0 || l[0] == '#' { // empty line or comment
-			continue
-		}
-
-		if comment := strings.Index(l, "#"); comment != -1 {
-			l = l[:comment]
-		}
-
-		l = strings.Trim(l, " \t\r")
-		parts := strings.Split(l, ":")
-		if len(parts) != 3 {
-			log.Printf("Warning: invalid ideal gif encoding on line %d\n", n)
-			continue
-		}
-
-		val, err := strconv.Atoi(parts[2])
-		if err != nil {
-			log.Printf("Warning: invalid interger value on line %d %q\n", n, parts[2])
-			continue
-		}
-
-		idealGifFrames[parts[0] + ":" + parts[1]] = val
-	}
-	fmt.Println(idealGifFrames)
-}
-
-func DownloadEmote(emote Emote, size ImageSize) ([]byte, error) {
+func requestEmote(emote Emote, size ImageSize) (image.Image, error) {
 	url := emote.URL(size)
-
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -102,96 +42,27 @@ func DownloadEmote(emote Emote, size ImageSize) ([]byte, error) {
 		return nil, fmt.Errorf("unsupported emote type %q", emote.Type())
 	}
 
+	return img, nil
+}
+
+func DownloadEmote(emote Emote, size ImageSize) ([]byte, error) {
+	img, err := requestEmote(emote, size)
+	if err != nil {
+		return nil, fmt.Errorf("request emote: %w", err)
+	}
 	return processImage(img, size)
 }
 
-func processImage(img image.Image, size ImageSize) ([]byte, error) {
-	width, height := img.Bounds().Max.X, img.Bounds().Max.Y
-	requiredSize := emoteSizeMap[size]
-
-	var newImg image.Image
-	if width != height {
-		if width > height { // too wide, add top/bottom padding
-			newImg = image.NewRGBA(image.Rect(0, 0, width, width))
-			newImg = imaging.PasteCenter(newImg, img)
-			newImg = imaging.Resize(newImg, requiredSize, requiredSize, imaging.Lanczos)
-		} else { // too tall, add left/right padding
-			newImg = image.NewRGBA(image.Rect(0, 0, height, height))
-			newImg = imaging.PasteCenter(newImg, img)
-			newImg = imaging.Resize(newImg, requiredSize, requiredSize, imaging.Lanczos)
-		}
-	} else {
-		newImg = img
+func DownloadEmoteHalves(emote Emote, size ImageSize) ([]byte, []byte, error) {
+	img, err := requestEmote(emote, size)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request emote: %w", err)
 	}
-
-	buf := new(bytes.Buffer)
-	if err := png.Encode(buf, newImg); err != nil {
-		return nil, err
+	l, r, err := processImageHalves(img, size)
+	if err != nil {
+		return nil, nil, fmt.Errorf("process halves: %w", err)
 	}
-
-	return buf.Bytes(), nil
-}
-
-func selectGifFrame(emote Emote, g *gif.GIF) image.Image {
-	key := emote.LetterCode() + ":" + emote.EmoteID()
-	if idealGifFrames == nil {
-		return getGifFrame(g, 0)
-	} else {
-		// frame number will be the found value or zero
-		return getGifFrame(g, idealGifFrames[key])
-	}
-}
-
-func getGifFrame(g *gif.GIF, stopFrame int) image.Image {
-	if stopFrame > len(g.Image)-1 || stopFrame < 0 { // safety checks
-		stopFrame = 0
-	}
-
-	if len(g.Image) == 1 || stopFrame == 0 {
-		return g.Image[0]
-	}
-
-	// Create canvas
-	width, height := getGifDimensions(g)
-	result := image.NewRGBA(image.Rect(0, 0, width, height))
-
-	// Draw first frame
-	draw.Draw(result, result.Bounds(), g.Image[0], image.Point{}, draw.Src)
-	for i := 1; i <= stopFrame; i++ {
-		// Yes, not a correct implementation of disposal methods but it works
-		var op draw.Op
-		switch g.Disposal[i-1] {
-		case gif.DisposalBackground: // clear and replace existing with current frame
-			op = draw.Src
-		case gif.DisposalNone, gif.DisposalPrevious: // impose current frame over existing
-			op = draw.Over
-		}
-
-		draw.Draw(result, result.Bounds(), g.Image[i], image.Point{}, op)
-	}
-
-	return result
-}
-
-func getGifDimensions(g *gif.GIF) (int, int) {
-	var minX, maxX, minY, maxY int
-
-	for _, img := range g.Image {
-		if img.Rect.Min.X < minX {
-			minX = img.Rect.Min.X
-		}
-		if img.Rect.Max.X > maxX {
-			maxX = img.Rect.Max.X
-		}
-		if img.Rect.Min.Y < minY {
-			minY = img.Rect.Min.Y
-		}
-		if img.Rect.Max.Y > maxY {
-			maxY = img.Rect.Max.Y
-		}
-	}
-
-	return maxX - minX, maxY - minY
+	return l, r, nil
 }
 
 type cacheMapValue struct {
@@ -203,10 +74,19 @@ func getFileKey(emote Emote, size ImageSize) string {
 	return emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString()
 }
 
+func getVirtualFileKey(emote Emote, size ImageSize, half VirtualHalf) string {
+	return "v" + half.LetterCode() + "_" + emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString()
+}
+
+func getAspectRatioKey(emote Emote) string {
+	return emote.LetterCode() + "_" + emote.EmoteID()
+}
+
 type ImageFileCache struct {
-	cacheMap   map[string]cacheMapValue
-	basePath   string
-	expiration time.Duration
+	cacheMap       map[string]cacheMapValue
+	aspectRatioMap map[string]float64
+	basePath       string
+	expiration     time.Duration
 	// Remove files older than expiration in the basePath directory
 	cleanOnIndex bool
 
@@ -215,10 +95,11 @@ type ImageFileCache struct {
 
 func NewImageFileCache(basePath string, expiration time.Duration, cleanOnIndex bool) *ImageFileCache {
 	return &ImageFileCache{
-		cacheMap:     make(map[string]cacheMapValue),
-		basePath:     basePath,
-		expiration:   expiration,
-		cleanOnIndex: cleanOnIndex,
+		cacheMap:       make(map[string]cacheMapValue),
+		aspectRatioMap: make(map[string]float64),
+		basePath:       basePath,
+		expiration:     expiration,
+		cleanOnIndex:   cleanOnIndex,
 	}
 }
 
@@ -329,20 +210,8 @@ func (c *ImageFileCache) GetCachedOrDownload(emote Emote, size ImageSize, writer
 			return err
 		}
 
-		fPath := path.Join(c.basePath, key+".png")
-		f, err := os.Create(fPath)
-		if err != nil {
+		if err := c.writeDataToCache(key, data); err != nil {
 			return err
-		}
-
-		if _, err = f.Write(data); err != nil {
-			return fmt.Errorf("write cache file: %w", err)
-		}
-		f.Close()
-
-		c.cacheMap[key] = cacheMapValue{
-			path:    fPath,
-			created: time.Now(),
 		}
 
 		if writer != nil {
@@ -352,4 +221,137 @@ func (c *ImageFileCache) GetCachedOrDownload(emote Emote, size ImageSize, writer
 			return nil
 		}
 	}
+}
+
+type VirtualHalf int
+
+const (
+	LeftHalf VirtualHalf = iota
+	RightHalf
+)
+
+func (h VirtualHalf) LetterCode() string {
+	switch h {
+	case LeftHalf:
+		return "l"
+	case RightHalf:
+		return "r"
+	default:
+		return "?"
+	}
+}
+
+func (c *ImageFileCache) GetCachedOrDownloadHalf(emote Emote, size ImageSize, half VirtualHalf, writer io.Writer) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	key := getVirtualFileKey(emote, size, half)
+	val, exists := c.cacheMap[key]
+	if exists {
+		if writer == nil {
+			return nil
+		}
+
+		f, err := os.Open(val.path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = io.Copy(writer, f)
+		return err
+	} else {
+		left, right, err := DownloadEmoteHalves(emote, size)
+		if err != nil {
+			return err
+		}
+
+		leftKey := getVirtualFileKey(emote, size, LeftHalf)
+		rightKey := getVirtualFileKey(emote, size, RightHalf)
+
+		if err := c.writeDataToCache(leftKey, left); err != nil {
+			return err
+		}
+		if err := c.writeDataToCache(rightKey, right); err != nil {
+			return err
+		}
+
+		if writer != nil {
+			var data []byte
+			switch half {
+			case LeftHalf:
+				data = left
+			case RightHalf:
+				data = right
+			default:
+				return fmt.Errorf("unknown half %d", half)
+			}
+
+			_, err = writer.Write(data)
+			return err
+		} else {
+			return nil
+		}
+	}
+}
+
+func (c *ImageFileCache) writeDataToCache(key string, data []byte) error {
+	fPath := path.Join(c.basePath, key+".png")
+	f, err := os.Create(fPath)
+	if err != nil {
+		return err
+	}
+
+	if _, err = f.Write(data); err != nil {
+		return fmt.Errorf("write cache file: %w", err)
+	}
+	f.Close()
+
+	c.cacheMap[key] = cacheMapValue{
+		path:    fPath,
+		created: time.Now(),
+	}
+	return nil
+}
+
+func (c *ImageFileCache) GetEmoteAspectRatio(emote Emote) (float64, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	key := getAspectRatioKey(emote)
+	val, found := c.aspectRatioMap[key]
+	if found {
+		return val, nil
+	}
+
+	url := emote.URL(ImageSizeSmall)
+	resp, err := client.Get(url)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	var cfg image.Config
+	if emote.Type() == "png" {
+		c, err := png.DecodeConfig(resp.Body)
+		if err != nil {
+			return 0, err
+		}
+		cfg = c
+	} else if emote.Type() == "gif" {
+		c, err := gif.DecodeConfig(resp.Body)
+		if err != nil {
+			return 0, err
+		}
+		cfg = c
+	} else {
+		return 0, fmt.Errorf("unsupported emote type %q", emote.Type())
+	}
+
+	calculated := float64(cfg.Width) / float64(cfg.Height)
+
+	fmt.Printf("emote %s aspect ratio: %.2f\n", emote.EmoteID(), calculated)
+
+	c.aspectRatioMap[key] = calculated
+	return calculated, nil
 }

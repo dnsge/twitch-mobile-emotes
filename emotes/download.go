@@ -357,8 +357,6 @@ func (c *ImageFileCache) GetEmoteAspectRatio(emote Emote) (float64, error) {
 
 	calculated := float64(cfg.Width) / float64(cfg.Height)
 
-	fmt.Printf("emote %s aspect ratio: %.2f\n", emote.EmoteID(), calculated)
-
 	c.aspectRatioMap[key] = calculated
 	return calculated, nil
 }

@@ -2,6 +2,8 @@ package emotes
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"image"
 	"image/gif"
@@ -70,16 +72,21 @@ type cacheMapValue struct {
 	created time.Time
 }
 
+func hashString(s string) string {
+	sum := sha1.Sum([]byte(s))
+	return hex.EncodeToString(sum[:])
+}
+
 func getFileKey(emote Emote, size ImageSize) string {
-	return emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString()
+	return hashString(emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString())
 }
 
 func getVirtualFileKey(emote Emote, size ImageSize, half VirtualHalf) string {
-	return "v" + half.LetterCode() + "_" + emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString()
+	return hashString("v" + half.LetterCode() + "_" + emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString())
 }
 
 func getAspectRatioKey(emote Emote) string {
-	return emote.LetterCode() + "_" + emote.EmoteID()
+	return hashString(emote.LetterCode() + "_" + emote.EmoteID())
 }
 
 type ImageFileCache struct {

@@ -22,12 +22,16 @@ func injectThirdPartyEmotes(emoteStore *emotes.EmoteStore, imageCache *emotes.Im
 		wordLen := utf8.RuneCountInString(word) // UTF-8 so emojis don't mess up
 		if e, found := emoteStore.GetEmoteFromWord(word, channelID); found {
 			if includeGifs || e.Type() != "gif" {
-				ratio, err := imageCache.GetEmoteAspectRatio(e)
-				if err != nil {
-					return err
+				wide := false
+				if imageCache != nil {
+					ratio, err := imageCache.GetEmoteAspectRatio(e)
+					if err != nil {
+						return err
+					}
+					wide = isWide(ratio)
 				}
 
-				if isWide(ratio) && wordLen >= 3 {
+				if wide && wordLen >= 3 {
 					emoteTag.Add(leftPrefix+e.LetterCode()+e.EmoteID(), [2]int{i, i + 1})
 					emoteTag.Add(rightPrefix+e.LetterCode()+e.EmoteID(), [2]int{i + 2, i + wordLen - 1})
 				} else {

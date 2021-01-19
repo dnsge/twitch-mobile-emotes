@@ -106,8 +106,6 @@ func resizeImageWithAspectRatio(img image.Image, targetWidth, targetHeight int) 
 	ratio := float64(width) / float64(height)
 	targetRatio := float64(targetWidth) / float64(targetHeight)
 
-	fmt.Printf("w: %d h: %d r: %.2f tr: %.2f\n", width, height, ratio, targetRatio)
-
 	var newImg image.Image
 	if targetRatio > ratio { // target is wider, scale to height first then resize
 		newImg = image.NewRGBA(image.Rect(0, 0, int(targetRatio * float64(height)), height))

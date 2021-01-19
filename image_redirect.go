@@ -45,7 +45,7 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes
 		size = s
 	}
 
-	if len(id) > 2 {
+	if len(id) >= 2 {
 		code := id[0]
 		id = id[1:]
 
@@ -53,6 +53,12 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes
 		var half emotes.VirtualHalf = -1
 		if isVirtual {
 			// At this point, 'id' is in the form of [l/r][emote_type][emote_id]
+			if len(id) < 3 {
+				log.Printf("Got unknown emote code %q\n", r.URL)
+				http.NotFound(w, r)
+				return
+			}
+
 			switch id[0] {
 			case 'l':
 				half = emotes.LeftHalf

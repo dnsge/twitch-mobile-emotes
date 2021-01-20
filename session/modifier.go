@@ -10,11 +10,25 @@ import (
 const leftPrefix = "vl"
 const rightPrefix = "vr"
 
+const commandRune = 0x01
+
+func trimCommandRune(r rune) bool {
+	return r == commandRune
+}
+
 func injectThirdPartyEmotes(emoteStore *emotes.EmoteStore, imageCache *emotes.ImageFileCache, msg *irc.Message, channelID string, includeGifs bool) error {
 	messageBody := msg.Trailing()
 	emoteTag, err := irc.NewEmoteTag(msg.Tags["emotes"])
 	if err != nil {
 		return err
+	}
+
+	if messageBody[0] == commandRune {
+		messageBody = strings.TrimFunc(messageBody, trimCommandRune)
+		spaceIndex := strings.IndexRune(messageBody, ' ')
+		if spaceIndex != -1 && spaceIndex < len(messageBody) {
+			messageBody = messageBody[spaceIndex + 1:]
+		}
 	}
 
 	i := 0

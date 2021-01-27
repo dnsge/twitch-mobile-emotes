@@ -156,7 +156,7 @@ func (s *EmoteStore) updateWordMap(channelID string) {
 		wordMap[e.Code] = e
 	}
 	for _, e := range s.globalFfz {
-		wordMap[e.Code] = e
+		wordMap[e.Name] = e
 	}
 
 	channelEmotes, ok := s.channels[channelID]
@@ -165,7 +165,7 @@ func (s *EmoteStore) updateWordMap(channelID string) {
 			wordMap[e.Code] = e
 		}
 		for _, e := range channelEmotes.ffz {
-			wordMap[e.Code] = e
+			wordMap[e.Name] = e
 		}
 	}
 

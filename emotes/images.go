@@ -52,32 +52,35 @@ func FormatFFZEmote(id string, size ImageSize) string {
 }
 
 func (f *FfzEmote) URL(size ImageSize) string {
+	u := ""
 	switch size {
 	case ImageSizeSmall: // one -> two -> four
 		if f.Images.One != "" {
-			return f.Images.One
+			u = f.Images.One
 		} else if f.Images.Two != "" {
-			return f.Images.Two
+			u = f.Images.Two
 		} else {
-			return f.Images.Four
+			u = f.Images.Four
 		}
 	case ImageSizeMedium: // two -> one -> four
 		if f.Images.Two != "" {
-			return f.Images.Two
+			u = f.Images.Two
 		} else if f.Images.One != "" {
-			return f.Images.One
+			u = f.Images.One
 		} else {
-			return f.Images.Four
+			u = f.Images.Four
 		}
 	case ImageSizeLarge: // four -> two -> one
 		if f.Images.Four != "" {
-			return f.Images.Four
+			u = f.Images.Four
 		} else if f.Images.Two != "" {
-			return f.Images.Two
+			u = f.Images.Two
 		} else {
-			return f.Images.One
+			u = f.Images.One
 		}
 	default:
 		panic("Unknown emote size")
 	}
+
+	return "https:" + u // FFZ image URLs don't have a schema attached
 }

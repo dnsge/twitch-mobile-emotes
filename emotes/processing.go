@@ -66,7 +66,6 @@ func InitIdealGifFrames(path string) {
 
 		idealGifFrames[parts[0]+":"+parts[1]] = val
 	}
-	fmt.Println(idealGifFrames)
 }
 
 func processImage(img image.Image, size ImageSize) ([]byte, error) {

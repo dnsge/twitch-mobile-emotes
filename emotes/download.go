@@ -230,6 +230,25 @@ func (c *ImageFileCache) GetCachedOrDownload(emote Emote, size ImageSize, writer
 	}
 }
 
+func (c *ImageFileCache) DownloadToCache(emote Emote, size ImageSize) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	key := getFileKey(emote, size)
+	_, exists := c.cacheMap[key]
+	if !exists {
+		data, err := DownloadEmote(emote, size)
+		if err != nil {
+			return err
+		}
+
+		if err := c.writeDataToCache(key, data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type VirtualHalf int
 
 const (
@@ -300,6 +319,31 @@ func (c *ImageFileCache) GetCachedOrDownloadHalf(emote Emote, size ImageSize, ha
 			return nil
 		}
 	}
+}
+
+func (c *ImageFileCache) DownloadVirtualToCache(emote Emote, size ImageSize) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	leftKey := getVirtualFileKey(emote, size, LeftHalf)
+	rightKey := getVirtualFileKey(emote, size, RightHalf)
+	_, existLeft := c.cacheMap[leftKey]
+	_, existRight := c.cacheMap[rightKey]
+	if !existLeft || !existRight {
+		left, right, err := DownloadEmoteHalves(emote, size)
+		if err != nil {
+			return err
+		}
+
+		if err := c.writeDataToCache(leftKey, left); err != nil {
+			return err
+		}
+		if err := c.writeDataToCache(rightKey, right); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *ImageFileCache) writeDataToCache(key string, data []byte) error {

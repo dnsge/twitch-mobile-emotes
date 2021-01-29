@@ -3,6 +3,7 @@ package session
 import (
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"github.com/dnsge/twitch-mobile-emotes/irc"
+	"log"
 	"strings"
 	"unicode/utf8"
 )
@@ -48,8 +49,20 @@ func injectThirdPartyEmotes(emoteStore *emotes.EmoteStore, imageCache *emotes.Im
 				if wide && wordLen >= 3 {
 					emoteTag.Add(leftPrefix+e.LetterCode()+e.EmoteID(), [2]int{i, i + 1})
 					emoteTag.Add(rightPrefix+e.LetterCode()+e.EmoteID(), [2]int{i + 2, i + wordLen - 1})
+					go func() {
+						err := imageCache.DownloadVirtualToCache(e, emotes.ImageSizeLarge)
+						if err != nil {
+							log.Printf("Pre-fetch virtual emote: %v\n", err)
+						}
+					}()
 				} else {
 					emoteTag.Add(e.LetterCode()+e.EmoteID(), [2]int{i, i + wordLen - 1})
+					go func() {
+						err := imageCache.DownloadToCache(e, emotes.ImageSizeLarge)
+						if err != nil {
+							log.Printf("Pre-fetch emote: %v\n", err)
+						}
+					}()
 				}
 			}
 		}

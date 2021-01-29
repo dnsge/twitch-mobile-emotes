@@ -18,22 +18,29 @@ type ChannelEmotes struct {
 type WordMap map[string]Emote
 
 type EmoteStore struct {
-	globalBttv   []*BttvEmote
-	globalFfz    []*FfzEmote
-	channels     map[string]*ChannelEmotes
-	channelTimes map[string]time.Time
-	wordMaps     map[string]WordMap
+	// Globally available emotes
+	globalBttv     []*BttvEmote
+	globalFfz      []*FfzEmote
+
+	// Emotes that were requested but not found in any other channel
+	danglingEmotes *ChannelEmotes
+
+	// Emotes belonging to channels
+	channels       map[string]*ChannelEmotes
+	channelTimes   map[string]time.Time
+	wordMaps       map[string]WordMap
 
 	mu sync.Mutex
 }
 
 func NewEmoteStore() *EmoteStore {
 	return &EmoteStore{
-		globalBttv:   nil,
-		globalFfz:    nil,
-		channels:     make(map[string]*ChannelEmotes),
-		channelTimes: make(map[string]time.Time),
-		wordMaps:     make(map[string]WordMap),
+		globalBttv:     nil,
+		globalFfz:      nil,
+		danglingEmotes: &ChannelEmotes{},
+		channels:       make(map[string]*ChannelEmotes),
+		channelTimes:   make(map[string]time.Time),
+		wordMaps:       make(map[string]WordMap),
 	}
 }
 
@@ -102,7 +109,9 @@ func (s *EmoteStore) GetChannelEmotes(channelID string) (*ChannelEmotes, bool) {
 	return e, ok
 }
 
-func (s *EmoteStore) FindBttvEmote(emoteID string) (*BttvEmote, bool) {
+func (s *EmoteStore) GetBttvEmote(emoteID string) (*BttvEmote, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, e := range s.globalBttv {
 		if e.ID == emoteID {
 			return e, true
@@ -117,10 +126,24 @@ func (s *EmoteStore) FindBttvEmote(emoteID string) (*BttvEmote, bool) {
 		}
 	}
 
-	return nil, false
+	for _, e := range s.danglingEmotes.bttv {
+		if e.ID == emoteID {
+			return e, true
+		}
+	}
+
+	e, err := GetSpecificBTTVEmote(emoteID)
+	if err != nil {
+		return nil, false
+	} else {
+		s.danglingEmotes.bttv = append(s.danglingEmotes.bttv, e)
+		return e, true
+	}
 }
 
-func (s *EmoteStore) FindFfzEmote(emoteID string) (*FfzEmote, bool) {
+func (s *EmoteStore) GetFfzEmote(emoteID string) (*FfzEmote, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	intID, err := strconv.Atoi(emoteID)
 	if err != nil {
 		return nil, false
@@ -140,7 +163,19 @@ func (s *EmoteStore) FindFfzEmote(emoteID string) (*FfzEmote, bool) {
 		}
 	}
 
-	return nil, false
+	for _, e := range s.danglingEmotes.ffz {
+		if e.ID == intID {
+			return e, true
+		}
+	}
+
+	e, err := GetSpecificFFZEmote(emoteID)
+	if err != nil {
+		return nil, false
+	} else {
+		s.danglingEmotes.ffz = append(s.danglingEmotes.ffz, e)
+		return e, true
+	}
 }
 
 func (s *EmoteStore) updateWordMap(channelID string) {
@@ -173,6 +208,8 @@ func (s *EmoteStore) updateWordMap(channelID string) {
 }
 
 func (s *EmoteStore) GetEmoteFromWord(word, channelID string) (Emote, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	channelWords, ok := s.wordMaps[channelID]
 	if !ok {
 		return nil, false

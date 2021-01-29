@@ -76,7 +76,7 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes
 		var emote emotes.Emote
 		switch code {
 		case 'b':
-			e, found := store.FindBttvEmote(id)
+			e, found := store.GetBttvEmote(id)
 			if found {
 				emote = e
 			} else {
@@ -85,7 +85,7 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes
 				return
 			}
 		case 'f':
-			e, found := store.FindFfzEmote(id)
+			e, found := store.GetFfzEmote(id)
 			if found {
 				emote = e
 			} else {

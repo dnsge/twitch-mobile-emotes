@@ -21,7 +21,7 @@ const (
 )
 
 var client = http.Client{
-	Timeout: time.Second * 20,
+	Timeout: time.Second * 5,
 }
 
 func populateHeaders(req *http.Request) {

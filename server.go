@@ -1,25 +1,15 @@
 package tme
 
 import (
-	"context"
+	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"log"
 	"net/http"
 	"time"
 )
 
-type ServerConfig struct {
-	Address       string
-	WebsocketHost string
-	EmoticonHost  string
-	ExcludeGifs   bool
-	CachePath     string
-	HighRes       bool
-	Purge         bool
-	Context       context.Context
-}
 
-func MakeServer(cfg *ServerConfig) *http.Server {
+func MakeServer(cfg *app.ServerConfig) *http.Server {
 	s := &http.Server{
 		Addr:    cfg.Address,
 		Handler: handleRequest(cfg),
@@ -35,7 +25,7 @@ func MakeServer(cfg *ServerConfig) *http.Server {
 	return s
 }
 
-func handleRequest(cfg *ServerConfig) http.HandlerFunc {
+func handleRequest(cfg *app.ServerConfig) http.HandlerFunc {
 	store := emotes.NewEmoteStore()
 	if err := store.Init(); err != nil {
 		log.Fatalln(err)
@@ -57,7 +47,13 @@ func handleRequest(cfg *ServerConfig) http.HandlerFunc {
 		go cache.AutoEvict(cfg.Context)
 	}
 
-	manager := NewWsForwarder(store, cache, !cfg.ExcludeGifs, cfg.Context)
+	appCtx := &app.Context{
+		EmoteStore: store,
+		ImageCache: cache,
+		Config:     cfg,
+	}
+
+	manager := NewWsForwarder(appCtx)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Host == cfg.WebsocketHost {
 			manager.HandleWsConnection(w, r)

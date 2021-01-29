@@ -1,6 +1,7 @@
 package session
 
 import (
+	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"github.com/dnsge/twitch-mobile-emotes/irc"
 	"github.com/gorilla/websocket"
@@ -10,15 +11,18 @@ import (
 	"sync"
 )
 
-func RunWsSession(clientConn, twitchConn *websocket.Conn, emoteStore *emotes.EmoteStore, imageCache *emotes.ImageFileCache, includeGifs bool) {
+func RunWsSession(clientConn, twitchConn *websocket.Conn, ctx *app.Context) {
 	session := &wsSession{
 		clientConn:  clientConn,
 		twitchConn:  twitchConn,
-		emoteStore:  emoteStore,
-		imageCache:  imageCache,
-		includeGifs: includeGifs,
+		emoteStore:  ctx.EmoteStore,
+		imageCache:  ctx.ImageCache,
+		includeGifs: ctx.Config.ExcludeGifs,
 
-		greeted: false,
+		status: &sessionStatus{
+			username: "",
+			greeted:  false,
+		},
 	}
 	session.run()
 }
@@ -30,8 +34,12 @@ type wsSession struct {
 	imageCache  *emotes.ImageFileCache
 	includeGifs bool
 
+	status *sessionStatus
+}
+
+type sessionStatus struct {
 	username string
-	greeted  bool
+	greeted bool
 }
 
 func (s *wsSession) run() {

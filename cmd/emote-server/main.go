@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"github.com/dnsge/twitch-mobile-emotes"
+	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"log"
 	"os"
@@ -43,7 +44,7 @@ func main() {
 	}
 
 	ctx := signalInterrupterContext()
-	server := tme.MakeServer(&tme.ServerConfig{
+	server := tme.MakeServer(&app.ServerConfig{
 		Address:       *addr,
 		WebsocketHost: *wsHost,
 		EmoticonHost:  *emHost,

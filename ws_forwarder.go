@@ -2,7 +2,7 @@ package tme
 
 import (
 	"context"
-	"github.com/dnsge/twitch-mobile-emotes/emotes"
+	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/session"
 	"github.com/gorilla/websocket"
 	"log"
@@ -25,18 +25,12 @@ var upgrader = websocket.Upgrader{
 }
 
 type WsForwarder struct {
-	emoteStore  *emotes.EmoteStore
-	imageCache  *emotes.ImageFileCache
-	includeGifs bool
-	ctx         context.Context
+	ctx *app.Context
 }
 
-func NewWsForwarder(store *emotes.EmoteStore, imageCache *emotes.ImageFileCache, includeGifs bool, ctx context.Context) *WsForwarder {
+func NewWsForwarder(ctx *app.Context) *WsForwarder {
 	return &WsForwarder{
-		emoteStore:  store,
-		imageCache:  imageCache,
-		includeGifs: includeGifs,
-		ctx:         ctx,
+		ctx: ctx,
 	}
 }
 
@@ -49,13 +43,13 @@ func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request)
 
 	defer conn.Close()
 
-	twitchConn, err := connectToTwitchIrc(f.ctx)
+	twitchConn, err := connectToTwitchIrc(f.ctx.Config.Context)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
 	log.Println("Client connected")
-	session.RunWsSession(conn, twitchConn, f.emoteStore, f.imageCache, f.includeGifs)
+	session.RunWsSession(conn, twitchConn, f.ctx)
 	log.Println("Client disconnected")
 }

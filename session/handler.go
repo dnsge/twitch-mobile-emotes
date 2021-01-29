@@ -44,9 +44,9 @@ const reloadCommand = "@@reload"
 func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 	switch msg.Command {
 	case "NICK":
-		if !s.greeted {
-			s.username = msg.Params[0]
-			s.greeted = true
+		if !s.status.greeted {
+			s.status.username = msg.Params[0]
+			s.status.greeted = true
 		}
 	case "PRIVMSG":
 		if msg.Trailing() == reloadCommand {
@@ -58,8 +58,8 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 					return true, false, fmt.Errorf("reload channel: %w", err)
 				} else {
 					var body string
-					if s.greeted {
-						body = "@" + s.username + ", reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
+					if s.status.greeted {
+						body = "@" + s.status.username + ", reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
 					} else { // really shouldn't be possible
 						body = "Reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
 					}

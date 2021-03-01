@@ -16,7 +16,7 @@ func (s *wsSession) handleTwitchMessage(msg *irc.Message) (bool, error) {
 			return false, fmt.Errorf("missing user id tag for %q", msg.Params[0])
 		}
 
-		if err := injectThirdPartyEmotes(s.emoteStore, s.imageCache, msg, channelID, s.includeGifs); err != nil {
+		if err := injectThirdPartyEmotes(s, msg, channelID); err != nil {
 			return false, fmt.Errorf("inject emotes: %w", err)
 		}
 
@@ -39,14 +39,15 @@ func (s *wsSession) handleTwitchMessage(msg *irc.Message) (bool, error) {
 }
 
 const reloadCommand = "@@reload"
+const destroyCacheCommand = "@@cache"
 
 // returns whether the message should be passed on, whether it was modified, and an error
 func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 	switch msg.Command {
 	case "NICK":
-		if !s.status.greeted {
-			s.status.username = msg.Params[0]
-			s.status.greeted = true
+		if !s.status.Greeted {
+			s.status.Username = msg.Params[0]
+			s.status.Greeted = true
 		}
 	case "PRIVMSG":
 		if msg.Trailing() == reloadCommand {
@@ -58,8 +59,8 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 					return true, false, fmt.Errorf("reload channel: %w", err)
 				} else {
 					var body string
-					if s.status.greeted {
-						body = "@" + s.status.username + ", reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
+					if s.status.Greeted {
+						body = "@" + s.status.Username + ", reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
 					} else { // really shouldn't be possible
 						body = "Reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
 					}
@@ -69,6 +70,26 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 					return false, false, nil // don't forward the reload message
 				}
 			}
+		} else if strings.HasPrefix(msg.Trailing(), destroyCacheCommand) {
+			if msg.Trailing() == destroyCacheCommand + " off" {
+				s.status.CacheDestroyer = ""
+				s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], "Removed cache destroyer value"))
+				return false, false, nil // don't forward the cache message
+			}
+
+			s.status.CacheDestroyer = newCacheDestroyer(CacheDestroyerSize)
+			var body string
+			if s.status.Greeted {
+				body = "@" + s.status.Username + ", set new cache destroyer value to " + s.status.CacheDestroyer
+			} else {
+				body = "Set new cache destroyer value to " + s.status.CacheDestroyer
+			}
+
+			s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], body))
+			return false, false, nil // don't forward the cache message
+		} else if msg.Trailing() == "@@debug" {
+			fmt.Println(s.status)
+			return false, false, nil
 		}
 
 	}

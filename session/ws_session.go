@@ -20,8 +20,9 @@ func RunWsSession(clientConn, twitchConn *websocket.Conn, ctx *app.Context) {
 		includeGifs: ctx.Config.ExcludeGifs,
 
 		status: &sessionStatus{
-			username: "",
-			greeted:  false,
+			Username:       "",
+			Greeted:        false,
+			CacheDestroyer: "",
 		},
 	}
 	session.run()
@@ -38,8 +39,9 @@ type wsSession struct {
 }
 
 type sessionStatus struct {
-	username string
-	greeted bool
+	Username       string
+	Greeted        bool
+	CacheDestroyer string
 }
 
 func (s *wsSession) run() {

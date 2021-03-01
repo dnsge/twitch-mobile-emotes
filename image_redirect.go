@@ -3,6 +3,7 @@ package tme
 import (
 	"fmt"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
+	"github.com/dnsge/twitch-mobile-emotes/session"
 	"log"
 	"net/http"
 	"strings"
@@ -47,6 +48,12 @@ func handleEmoticonRequest(w http.ResponseWriter, r *http.Request, store *emotes
 
 	if len(id) >= 2 {
 		code := id[0]
+
+		if code == 'd' { // cache destroyer, discard characters
+			id = id[session.CacheDestroyerSize+1:]
+			code = id[0]
+		}
+
 		id = id[1:]
 
 		isVirtual := code == 'v'

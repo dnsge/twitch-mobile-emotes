@@ -188,7 +188,13 @@ func (s *EmoteStore) updateWordMap(channelID string) {
 
 	wordMap := make(WordMap)
 	for _, e := range s.globalBttv {
-		wordMap[e.Code] = e
+		if old, found := wordMap[e.Code]; found { // prioritize gif emotes of same name
+			if old.Type() != "gif" {
+				wordMap[e.Code] = e
+			}
+		} else {
+			wordMap[e.Code] = e
+		}
 	}
 	for _, e := range s.globalFfz {
 		wordMap[e.Name] = e
@@ -197,7 +203,13 @@ func (s *EmoteStore) updateWordMap(channelID string) {
 	channelEmotes, ok := s.channels[channelID]
 	if ok {
 		for _, e := range channelEmotes.bttv {
-			wordMap[e.Code] = e
+			if old, found := wordMap[e.Code]; found { // prioritize gif emotes of same name
+				if old.Type() != "gif" {
+					wordMap[e.Code] = e
+				}
+			} else {
+				wordMap[e.Code] = e
+			}
 		}
 		for _, e := range channelEmotes.ffz {
 			wordMap[e.Name] = e

@@ -37,6 +37,8 @@ func main() {
 	highRes := flag.Bool("high-res", true, "Whether to always use high-resolution emotes")
 	purge := flag.Bool("purge", false, "Purge cache on startup")
 	idealGifsFile := flag.String("ideal-gifs", "", "Path to ideal gif frames file (leave empty to disable)")
+	redisConn := flag.String("redis-url", "", "Redis connection string")
+	redisNamespace := flag.String("redis-namespace", "tme", "Redis key namespace")
 	flag.Parse()
 
 	if *idealGifsFile != "" {
@@ -45,14 +47,16 @@ func main() {
 
 	ctx := signalInterrupterContext()
 	server := tme.MakeServer(&app.ServerConfig{
-		Address:       *addr,
-		WebsocketHost: *wsHost,
-		EmoticonHost:  *emHost,
-		ExcludeGifs:   *excludeGifs,
-		CachePath:     *cachePath,
-		HighRes:       *highRes,
-		Purge:         *purge,
-		Context:       ctx,
+		Address:        *addr,
+		WebsocketHost:  *wsHost,
+		EmoticonHost:   *emHost,
+		IncludeGifs:    !*excludeGifs,
+		CachePath:      *cachePath,
+		HighRes:        *highRes,
+		Purge:          *purge,
+		RedisConn:      *redisConn,
+		RedisNamespace: *redisNamespace,
+		Context:        ctx,
 	})
 
 	<-ctx.Done()

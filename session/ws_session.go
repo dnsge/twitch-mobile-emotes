@@ -1,9 +1,11 @@
 package session
 
 import (
+	"fmt"
 	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"github.com/dnsge/twitch-mobile-emotes/irc"
+	"github.com/dnsge/twitch-mobile-emotes/storage"
 	"github.com/gorilla/websocket"
 	"log"
 	"net"
@@ -13,35 +15,62 @@ import (
 
 func RunWsSession(clientConn, twitchConn *websocket.Conn, ctx *app.Context) {
 	session := &wsSession{
-		clientConn:  clientConn,
-		twitchConn:  twitchConn,
-		emoteStore:  ctx.EmoteStore,
-		imageCache:  ctx.ImageCache,
-		includeGifs: ctx.Config.ExcludeGifs,
+		clientConn:         clientConn,
+		twitchConn:         twitchConn,
+		emoteStore:         ctx.EmoteStore,
+		imageCache:         ctx.ImageCache,
+		settingsRepository: ctx.SettingsRepository,
 
-		status: &sessionStatus{
-			Username:       "",
-			Greeted:        false,
-			CacheDestroyer: "",
+		defaultIncludeGifs: ctx.Config.IncludeGifs,
+
+		state: &state{
+			Username: "",
+			UserID:   "",
+			Greeted:  false,
 		},
+		settings: nil,
 	}
 	session.run()
 }
 
 type wsSession struct {
-	clientConn  *websocket.Conn
-	twitchConn  *websocket.Conn
-	emoteStore  *emotes.EmoteStore
-	imageCache  *emotes.ImageFileCache
-	includeGifs bool
+	clientConn         *websocket.Conn
+	twitchConn         *websocket.Conn
+	emoteStore         *emotes.EmoteStore
+	imageCache         *emotes.ImageFileCache
+	settingsRepository storage.SettingsRepository
 
-	status *sessionStatus
+	defaultIncludeGifs bool
+
+	state    *state
+	settings *storage.Settings
 }
 
-type sessionStatus struct {
-	Username       string
-	Greeted        bool
-	CacheDestroyer string
+type state struct {
+	Username string
+	UserID   string
+	Greeted  bool
+}
+
+func (s *wsSession) saveSettings() {
+	fmt.Println()
+	if s.settingsRepository == nil || s.settings == nil || s.state.UserID == "" {
+		return
+	}
+
+	go func() {
+		if err := s.settingsRepository.Save(s.state.UserID, s.settings); err != nil {
+			log.Printf("Error saving settings: %v\n", err)
+		}
+	}()
+}
+
+func (s *wsSession) showGifs() bool {
+	if s.settings == nil {
+		return s.defaultIncludeGifs
+	} else {
+		return s.settings.EnableGifEmotes
+	}
 }
 
 func (s *wsSession) run() {

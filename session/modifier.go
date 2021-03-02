@@ -43,7 +43,7 @@ func injectThirdPartyEmotes(s *wsSession, msg *irc.Message, channelID string) er
 	for _, word := range strings.Split(messageBody, " ") {
 		wordLen := utf8.RuneCountInString(word) // UTF-8 so emojis don't mess up
 		if e, found := s.emoteStore.GetEmoteFromWord(word, channelID); found {
-			if s.includeGifs || e.Type() != "gif" {
+			if s.showGifs() || e.Type() != "gif" {
 				wide := false
 				if s.imageCache != nil {
 					ratio, err := s.imageCache.GetEmoteAspectRatio(e)
@@ -54,11 +54,11 @@ func injectThirdPartyEmotes(s *wsSession, msg *irc.Message, channelID string) er
 				}
 
 				cacheDestroyerPrefix := ""
-				if s.status.CacheDestroyer != "" {
-					if len(s.status.CacheDestroyer) != CacheDestroyerSize {
-						s.status.CacheDestroyer = newCacheDestroyer(CacheDestroyerSize)
+				if s.settings.CacheDestroyerKey != "" {
+					if len(s.settings.CacheDestroyerKey) != CacheDestroyerSize {
+						s.settings.CacheDestroyerKey = newCacheDestroyer(CacheDestroyerSize)
 					}
-					cacheDestroyerPrefix = "d" + s.status.CacheDestroyer
+					cacheDestroyerPrefix = "d" + s.settings.CacheDestroyerKey
 				}
 
 				if wide && wordLen >= 3 {

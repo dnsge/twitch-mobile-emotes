@@ -3,11 +3,12 @@ package tme
 import (
 	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
+	"github.com/dnsge/twitch-mobile-emotes/storage"
+	"github.com/go-redis/redis/v8"
 	"log"
 	"net/http"
 	"time"
 )
-
 
 func MakeServer(cfg *app.ServerConfig) *http.Server {
 	s := &http.Server{
@@ -47,10 +48,21 @@ func handleRequest(cfg *app.ServerConfig) http.HandlerFunc {
 		go cache.AutoEvict(cfg.Context)
 	}
 
+	var settingsRepository storage.SettingsRepository = nil
+	if cfg.RedisConn != "" {
+		opts, err := redis.ParseURL(cfg.RedisConn)
+		if err != nil {
+			log.Fatalf("Parse redis URL: %v\n", err)
+		}
+		settingsRepository = storage.NewRedisSettingsRepository(cfg.RedisNamespace, opts, cfg.Context)
+		log.Println("Connected to Redis")
+	}
+
 	appCtx := &app.Context{
-		EmoteStore: store,
-		ImageCache: cache,
-		Config:     cfg,
+		EmoteStore:         store,
+		ImageCache:         cache,
+		Config:             cfg,
+		SettingsRepository: settingsRepository,
 	}
 
 	manager := NewWsForwarder(appCtx)

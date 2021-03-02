@@ -3,6 +3,8 @@ package session
 import (
 	"fmt"
 	"github.com/dnsge/twitch-mobile-emotes/irc"
+	"github.com/dnsge/twitch-mobile-emotes/storage"
+	"log"
 	"strings"
 )
 
@@ -44,10 +46,36 @@ const destroyCacheCommand = "@@cache"
 // returns whether the message should be passed on, whether it was modified, and an error
 func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 	switch msg.Command {
+	case "PASS":
+		go func() {
+			userID, err := GetUserIDFromOAuth(msg.Params[0])
+			if err != nil {
+				log.Printf("Error getting User ID: %v\n", err)
+				return
+			}
+
+			s.state.UserID = userID
+
+			settings, err := s.settingsRepository.Load(userID)
+			if err != nil {
+				log.Printf("Error loading settings: %v\n", err)
+				return
+			}
+
+			if settings == nil { // load default settings
+				s.settings = &storage.Settings{
+					CacheDestroyerKey: "",
+					EnableGifEmotes:   s.defaultIncludeGifs,
+				}
+				s.saveSettings()
+			} else {
+				s.settings = settings
+			}
+		}()
 	case "NICK":
-		if !s.status.Greeted {
-			s.status.Username = msg.Params[0]
-			s.status.Greeted = true
+		if !s.state.Greeted {
+			s.state.Username = msg.Params[0]
+			s.state.Greeted = true
 		}
 	case "PRIVMSG":
 		if msg.Trailing() == reloadCommand {
@@ -59,8 +87,8 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 					return true, false, fmt.Errorf("reload channel: %w", err)
 				} else {
 					var body string
-					if s.status.Greeted {
-						body = "@" + s.status.Username + ", reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
+					if s.state.Greeted {
+						body = "@" + s.state.Username + ", reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
 					} else { // really shouldn't be possible
 						body = "Reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
 					}
@@ -71,27 +99,29 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 				}
 			}
 		} else if strings.HasPrefix(msg.Trailing(), destroyCacheCommand) {
-			if msg.Trailing() == destroyCacheCommand + " off" {
-				s.status.CacheDestroyer = ""
+			if msg.Trailing() == destroyCacheCommand+" off" {
+				s.settings.CacheDestroyerKey = ""
+				s.saveSettings()
 				s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], "Removed cache destroyer value"))
 				return false, false, nil // don't forward the cache message
 			}
 
-			s.status.CacheDestroyer = newCacheDestroyer(CacheDestroyerSize)
+			s.settings.CacheDestroyerKey = newCacheDestroyer(CacheDestroyerSize)
 			var body string
-			if s.status.Greeted {
-				body = "@" + s.status.Username + ", set new cache destroyer value to " + s.status.CacheDestroyer
+			if s.state.Greeted {
+				body = "@" + s.state.Username + ", set new cache destroyer value to " + s.settings.CacheDestroyerKey
 			} else {
-				body = "Set new cache destroyer value to " + s.status.CacheDestroyer
+				body = "Set new cache destroyer value to " + s.settings.CacheDestroyerKey
 			}
 
+			s.saveSettings()
 			s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], body))
 			return false, false, nil // don't forward the cache message
 		} else if msg.Trailing() == "@@debug" {
-			fmt.Println(s.status)
+			fmt.Println(s.state)
+			fmt.Println(s.settings)
 			return false, false, nil
 		}
-
 	}
 
 	return true, false, nil

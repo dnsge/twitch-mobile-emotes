@@ -55,6 +55,9 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 			}
 
 			s.state.UserID = userID
+			if s.settingsRepository == nil {
+				return
+			}
 
 			settings, err := s.settingsRepository.Load(userID)
 			if err != nil {

@@ -78,11 +78,11 @@ func hashString(s string) string {
 }
 
 func getFileKey(emote Emote, size ImageSize) string {
-	return hashString(emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString())
+	return emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString()
 }
 
 func getVirtualFileKey(emote Emote, size ImageSize, half VirtualHalf) string {
-	return hashString("v" + half.LetterCode() + "_" + emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString())
+	return "v" + half.LetterCode() + "_" + emote.LetterCode() + "_" + emote.EmoteID() + "_" + size.BttvString()
 }
 
 func getAspectRatioKey(emote Emote) string {

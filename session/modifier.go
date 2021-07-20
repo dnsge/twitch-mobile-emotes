@@ -14,7 +14,7 @@ const leftPrefix = "vl"
 const rightPrefix = "vr"
 
 const commandRune = 0x01
-const CacheDestroyerSize = 8
+const CacheDestroyerSize = 3
 
 func init() {
 	rand.Seed(time.Now().UnixNano())
@@ -54,7 +54,7 @@ func injectThirdPartyEmotes(s *wsSession, msg *irc.Message, channelID string) er
 				}
 
 				cacheDestroyerPrefix := ""
-				if s.settings.CacheDestroyerKey != "" {
+				if s.settings != nil && s.settings.CacheDestroyerKey != "" {
 					if len(s.settings.CacheDestroyerKey) != CacheDestroyerSize {
 						s.settings.CacheDestroyerKey = newCacheDestroyer(CacheDestroyerSize)
 					}

@@ -27,7 +27,7 @@ func (r *RedisSettingsRepository) key(name string) string {
 }
 
 func (r *RedisSettingsRepository) Load(userID string) (*Settings, error) {
-	data, err := r.client.Get(r.ctx, r.key("settings:user_id:" + userID)).Result()
+	data, err := r.client.Get(r.ctx, r.key("settings:user_id:"+userID)).Result()
 	if err == redis.Nil {
 		return nil, nil
 	} else if err != nil {
@@ -48,5 +48,5 @@ func (r *RedisSettingsRepository) Save(userID string, settings *Settings) error 
 		return err
 	}
 
-	return r.client.Set(r.ctx, r.key("settings:user_id:" + userID), data, 0).Err()
+	return r.client.Set(r.ctx, r.key("settings:user_id:"+userID), data, 0).Err()
 }

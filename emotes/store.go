@@ -19,16 +19,16 @@ type WordMap map[string]Emote
 
 type EmoteStore struct {
 	// Globally available emotes
-	globalBttv     []*BttvEmote
-	globalFfz      []*FfzEmote
+	globalBttv []*BttvEmote
+	globalFfz  []*FfzEmote
 
 	// Emotes that were requested but not found in any other channel
 	danglingEmotes *ChannelEmotes
 
 	// Emotes belonging to channels
-	channels       map[string]*ChannelEmotes
-	channelTimes   map[string]time.Time
-	wordMaps       map[string]WordMap
+	channels     map[string]*ChannelEmotes
+	channelTimes map[string]time.Time
+	wordMaps     map[string]WordMap
 
 	mu sync.Mutex
 }

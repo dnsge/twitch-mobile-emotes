@@ -54,9 +54,9 @@ type FfzEmoteContainer struct {
 }
 
 type FfzEmote struct {
-	ID        int     `json:"id"`
-	Name      string  `json:"name"`
-	Images    FfzUrls `json:"urls"`
+	ID     int     `json:"id"`
+	Name   string  `json:"name"`
+	Images FfzUrls `json:"urls"`
 }
 
 func (f *FfzEmote) EmoteID() string {

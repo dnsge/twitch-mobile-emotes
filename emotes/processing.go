@@ -83,9 +83,9 @@ func processImage(img image.Image, size ImageSize) ([]byte, error) {
 func processImageHalves(img image.Image, size ImageSize) ([]byte, []byte, error) {
 	requiredSize := emoteSizeMap[size]
 
-	newImg := resizeImageWithAspectRatio(img, requiredSize * 2, requiredSize) // double width for wide emotes
+	newImg := resizeImageWithAspectRatio(img, requiredSize*2, requiredSize) // double width for wide emotes
 	leftImg := imaging.Crop(newImg, image.Rect(0, 0, requiredSize, requiredSize))
-	rightImg := imaging.Crop(newImg, image.Rect(requiredSize, 0, requiredSize * 2, requiredSize))
+	rightImg := imaging.Crop(newImg, image.Rect(requiredSize, 0, requiredSize*2, requiredSize))
 
 	left := new(bytes.Buffer)
 	right := new(bytes.Buffer)
@@ -107,9 +107,9 @@ func resizeImageWithAspectRatio(img image.Image, targetWidth, targetHeight int) 
 
 	var newImg image.Image
 	if targetRatio > ratio { // target is wider, scale to height first then resize
-		newImg = image.NewRGBA(image.Rect(0, 0, int(targetRatio * float64(height)), height))
+		newImg = image.NewRGBA(image.Rect(0, 0, int(targetRatio*float64(height)), height))
 	} else if targetRatio < ratio { // target is taller, scale to width first then resize
-		newImg = image.NewRGBA(image.Rect(0, 0, width, int(float64(width) / targetRatio)))
+		newImg = image.NewRGBA(image.Rect(0, 0, width, int(float64(width)/targetRatio)))
 	} else {
 		return imaging.Resize(img, targetWidth, targetHeight, imaging.Lanczos)
 	}

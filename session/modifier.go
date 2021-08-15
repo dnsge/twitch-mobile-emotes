@@ -95,6 +95,7 @@ func isWide(ratio float64) bool {
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyz0123456789")
+
 func newCacheDestroyer(size int) string {
 	b := make([]rune, size)
 	for i := range b {

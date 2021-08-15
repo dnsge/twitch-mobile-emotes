@@ -38,6 +38,8 @@ a `302 Found` code to the emote image.
 Real Twitch emotes that start with a digit instead of a `f` or `b` are passed on to the real `static-cdn.jtvnw.net` by
 nginx.
 
+When Twitch's mobile app begins using the v2 emote CDN, gif emotes will be returned as gifs instead of static frames.
+
 ## Building
 
 Build from source
@@ -62,8 +64,6 @@ Usage of emote-server:
         Path to cache files (leave empty to disable)
   -emoticon-host string
         Host header to expect from Emoticon requests (default "static-cdn.jtvnw.net")
-  -high-res
-        Whether to always use high-resolution emotes (default true)
   -ideal-gifs string
         Path to ideal gif frames file (leave empty to disable, only works with file cache)
   -no-gifs

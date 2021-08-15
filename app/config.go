@@ -8,7 +8,6 @@ type ServerConfig struct {
 	EmoticonHost   string
 	IncludeGifs    bool
 	CachePath      string
-	HighRes        bool
 	Purge          bool
 	RedisConn      string
 	RedisNamespace string

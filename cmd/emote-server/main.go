@@ -34,7 +34,6 @@ func main() {
 	emHost := flag.String("emoticon-host", "static-cdn.jtvnw.net", "Host header to expect from Emoticon requests")
 	excludeGifs := flag.Bool("no-gifs", false, "Disable showing gif emotes")
 	cachePath := flag.String("cache", "", "Path to cache files (leave empty to disable)")
-	highRes := flag.Bool("high-res", true, "Whether to always use high-resolution emotes")
 	purge := flag.Bool("purge", false, "Purge cache on startup")
 	idealGifsFile := flag.String("ideal-gifs", "", "Path to ideal gif frames file (leave empty to disable)")
 	redisConn := flag.String("redis-url", "", "Redis connection string")
@@ -52,7 +51,6 @@ func main() {
 		EmoticonHost:   *emHost,
 		IncludeGifs:    !*excludeGifs,
 		CachePath:      *cachePath,
-		HighRes:        *highRes,
 		Purge:          *purge,
 		RedisConn:      *redisConn,
 		RedisNamespace: *redisNamespace,

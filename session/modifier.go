@@ -44,7 +44,7 @@ func injectThirdPartyEmotes(s *wsSession, msg *irc.Message, channelID string) er
 		wordLen := utf8.RuneCountInString(word) // UTF-8 so emojis don't mess up
 		if e, found := s.emoteStore.GetEmoteFromWord(word, channelID); found {
 			if s.showGifs() || e.Type() != "gif" {
-				wide := false
+				wide := false // wide will always be false if imageCache is disabled
 				if s.imageCache != nil {
 					ratio, err := s.imageCache.GetEmoteAspectRatio(e)
 					if err != nil {

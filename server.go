@@ -70,7 +70,7 @@ func handleRequest(cfg *app.ServerConfig) http.HandlerFunc {
 		if r.Host == cfg.WebsocketHost {
 			manager.HandleWsConnection(w, r)
 		} else if r.Host == cfg.EmoticonHost {
-			handleEmoticonRequest(w, r, store, cache, cfg.HighRes)
+			handleEmoticonRequest(w, r, store, cache)
 		} else {
 			log.Printf("Got unexpected Host value %q\n", r.Host)
 			http.NotFound(w, r)

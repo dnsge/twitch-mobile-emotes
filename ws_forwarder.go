@@ -49,7 +49,5 @@ func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	log.Println("Client connected")
 	session.RunWsSession(conn, twitchConn, f.ctx)
-	log.Println("Client disconnected")
 }

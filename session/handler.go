@@ -42,6 +42,7 @@ func (s *wsSession) handleTwitchMessage(msg *irc.Message) (bool, error) {
 
 const reloadCommand = "@@reload"
 const destroyCacheCommand = "@@cache"
+const helpCommand = "@@help"
 
 // returns whether the message should be passed on, whether it was modified, and an error
 func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
@@ -120,6 +121,9 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 			s.saveSettings()
 			s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], body))
 			return false, false, nil // don't forward the cache message
+		} else if strings.HasPrefix(msg.Trailing(), helpCommand) {
+			s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], fmt.Sprintf("%q for reload, %q for cache destroyer", reloadCommand, destroyCacheCommand)))
+			return false, false, nil // don't forward the command message
 		} else if msg.Trailing() == "@@debug" {
 			fmt.Println(s.state)
 			fmt.Println(s.settings)

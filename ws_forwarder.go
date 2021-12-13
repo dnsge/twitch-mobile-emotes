@@ -22,6 +22,10 @@ func connectToTwitchIrc(ctx context.Context) (*websocket.Conn, error) {
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		// trust all origins
+		return true
+	},
 }
 
 type WsForwarder struct {

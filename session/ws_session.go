@@ -1,7 +1,6 @@
 package session
 
 import (
-	"fmt"
 	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"github.com/dnsge/twitch-mobile-emotes/irc"
@@ -53,7 +52,6 @@ type state struct {
 }
 
 func (s *wsSession) saveSettings() {
-	fmt.Println()
 	if s.settingsRepository == nil || s.settings == nil || s.state.UserID == "" {
 		return
 	}

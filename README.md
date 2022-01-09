@@ -3,12 +3,15 @@
 An HTTP server that intercepts and modifies Twitch's IRC-over-WebSockets chat and its emoticon CDN to introduce
 BetterTTV and FrankerFaceZ custom emotes to native chats, specifically on mobile.
 
+![GIF of different emotes](.github/mobile_emotes.gif)
+
 You must run this program behind some reverse proxy that can apply SSL certificates for the
 domains `static-cdn.jtvnw.net` and `irc-ws.chat.twitch.tv`. I choose to use a self-signed certificate that is trusted on
 my devices. See the `nginx` folder for an example.
 
-By using a tool like PiHole, you can create custom A records that will point both `static-cdn.jtvnw.net`
-and `irc-ws.chat.twitch.tv` to the IP of the emote server on your local network or behind on a VPN.
+By using a tool like PiHole (which is just dnsmasq with a GUI), you can create custom A/CNAME records that will point 
+both `static-cdn.jtvnw.net` and `irc-ws.chat.twitch.tv` to the IP of the emote server on your local network or behind 
+a VPN.
 
 ## How it works
 
@@ -32,13 +35,13 @@ However, when the unknowing client makes a request to
 
 `https://static-cdn.jtvnw.net/emoticons/v1/f128054/4.0`
 
-nginx detects the custom emote from the first character and forwards the request to the emote server, which then returns
+nginx detects the custom emote from the first character of the ID and forwards the request to the emote server, which then returns
 a `302 Found` code to the emote image.
 
 Real Twitch emotes that start with a digit instead of a `f` or `b` are passed on to the real `static-cdn.jtvnw.net` by
 nginx.
 
-When Twitch's mobile app begins using the v2 emote CDN, gif emotes will be returned as gifs instead of static frames.
+With Twitch's v2 emote CDN, the process is identical but with slightly different URLs. Requests with emote IDs that don't start with `emotesv2` are forwarded to the emote server. Additionally, GIF support allows for GIF 3rd party emotes.
 
 ## Building
 
@@ -51,7 +54,7 @@ $ go build ./cmd/emote-server
 ...or use the [docker container](https://github.com/dnsge/twitch-mobile-emotes/packages/531933):
 
 ```bash
-$ docker pull docker.pkg.github.com/dnsge/twitch-mobile-emotes/twitch-mobile-emotes:latest
+$ docker pull ghcr.io/dnsge/twitch-mobile-emotes/twitch-mobile-emotes:latest
 ```
 
 ## Usage
@@ -79,9 +82,11 @@ WS).
 
 Use the `--emoticon-host` and `--ws-host` flags to tell the server what to expect.
 
-If you want to disable gif emotes, as they don't properly render on mobile, pass the `--no-gifs` flag.
+If you want to disable gif emotes, pass the `--no-gifs` flag.
 
 ### ideal-gifs
+
+**NOTE: This feature is no longer needed as Twitch has updated its mobile app to natively support GIF emotes**
 
 By default, Twitch displays the first frame of a GIF emote, which sometimes is empty/incomplete. The ideal-gifs file
 allows for the specification of which frame to use for a GIF emote.

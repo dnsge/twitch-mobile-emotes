@@ -14,6 +14,7 @@ import (
 
 func RunWsSession(clientConn, twitchConn *websocket.Conn, ctx *app.Context) {
 	session := &wsSession{
+		config:             ctx.Config,
 		clientConn:         clientConn,
 		twitchConn:         twitchConn,
 		emoteStore:         ctx.EmoteStore,
@@ -33,6 +34,7 @@ func RunWsSession(clientConn, twitchConn *websocket.Conn, ctx *app.Context) {
 }
 
 type wsSession struct {
+	config             *app.ServerConfig
 	clientConn         *websocket.Conn
 	twitchConn         *websocket.Conn
 	emoteStore         *emotes.EmoteStore

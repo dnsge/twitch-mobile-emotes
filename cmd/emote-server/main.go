@@ -30,6 +30,7 @@ func signalInterrupterContext() context.Context {
 
 func main() {
 	addr := flag.String("address", "0.0.0.0:8080", "Bind address")
+	debug := flag.Bool("debug", false, "Enable debug printouts")
 	wsHost := flag.String("ws-host", "irc-ws.chat.twitch.tv", "Host header to expect from Websocket IRC requests")
 	emHost := flag.String("emoticon-host", "static-cdn.jtvnw.net", "Host header to expect from Emoticon requests")
 	excludeGifs := flag.Bool("no-gifs", false, "Disable showing gif emotes")
@@ -47,6 +48,7 @@ func main() {
 	ctx := signalInterrupterContext()
 	server := tme.MakeServer(&app.ServerConfig{
 		Address:        *addr,
+		Debug:          *debug,
 		WebsocketHost:  *wsHost,
 		EmoticonHost:   *emHost,
 		IncludeGifs:    !*excludeGifs,

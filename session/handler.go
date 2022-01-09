@@ -40,11 +40,6 @@ func (s *wsSession) handleTwitchMessage(msg *irc.Message) (bool, error) {
 	return false, nil
 }
 
-const reloadCommand = "@@reload"
-const destroyCacheCommand = "@@cache"
-const helpCommand = "@@help"
-const gifEmotesCommand = "@@gifs"
-
 // returns whether the message should be passed on, whether it was modified, and an error
 func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 	switch msg.Command {
@@ -83,76 +78,14 @@ func (s *wsSession) handleClientMessage(msg *irc.Message) (bool, bool, error) {
 			s.state.Greeted = true
 		}
 	case "PRIVMSG":
-		if msg.Trailing() == reloadCommand {
-			channelName := strings.ToLower(msg.Params[0])
-			channelID, found := channelNameMap[channelName]
-			if found {
-				err := s.emoteStore.Load(channelID)
-				if err != nil {
-					return true, false, fmt.Errorf("reload channel: %w", err)
-				} else {
-					var body string
-					if s.state.Greeted {
-						body = "@" + s.state.Username + ", reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
-					} else { // really shouldn't be possible
-						body = "Reloaded BTTV and FFZ emotes. The old emote images may remain cached on your device."
-					}
-
-					// try to catch the eye with fancy badges
-					s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], body))
-					return false, false, nil // don't forward the reload message
-				}
+		for _, command := range allCommands {
+			if IsCommand(msg, command, commandPrefix) {
+				args := ExtractCommandArgs(msg, command, commandPrefix)
+				command.Run(s, msg, args)
+				return false, false, nil
 			}
-		} else if strings.HasPrefix(msg.Trailing(), destroyCacheCommand) {
-			if msg.Trailing() == destroyCacheCommand+" off" {
-				s.settings.CacheDestroyerKey = ""
-				s.saveSettings()
-				s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], "Removed cache destroyer value"))
-				return false, false, nil // don't forward the cache message
-			}
-
-			s.settings.CacheDestroyerKey = newCacheDestroyer(CacheDestroyerSize)
-			var body string
-			if s.state.Greeted {
-				body = "@" + s.state.Username + ", set new cache destroyer value to " + s.settings.CacheDestroyerKey
-			} else {
-				body = "Set new cache destroyer value to " + s.settings.CacheDestroyerKey
-			}
-
-			s.saveSettings()
-			s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], body))
-			return false, false, nil // don't forward the cache message
-		} else if strings.HasPrefix(msg.Trailing(), gifEmotesCommand) {
-			if msg.Trailing() == gifEmotesCommand+" on" {
-				s.settings.EnableGifEmotes = true
-				s.saveSettings()
-				s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], "Enabled gif emotes"))
-			} else if msg.Trailing() == gifEmotesCommand+" off" {
-				s.settings.EnableGifEmotes = false
-				s.saveSettings()
-				s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], "Disabled gif emotes"))
-			} else {
-				s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], "Usage: " + gifEmotesCommand + " [on|off]"))
-			}
-
-			return false, false, nil // don't forward the command
-		} else if strings.HasPrefix(msg.Trailing(), helpCommand) {
-			s.writeClientMessage(1, makeVirtualMessage("staff/1,partner/1,broadcaster/1", msg.Params[0], fmt.Sprintf("%q for reload, %q for cache destroyer, %q for gif support", reloadCommand, destroyCacheCommand, gifEmotesCommand)))
-			return false, false, nil // don't forward the command message
-		} else if msg.Trailing() == "@@debug" {
-			fmt.Printf("State: %#v\n", s.state)
-			fmt.Printf("Settings: %#v\n", s.settings)
-			return false, false, nil
 		}
 	}
 
 	return true, false, nil
-}
-
-func makeVirtualMessage(badges irc.TagValue, channelName, body string) *irc.Message {
-	return &irc.Message{
-		Tags:    map[string]irc.TagValue{"badges": badges},
-		Command: "PRIVMSG",
-		Params:  []string{channelName, body},
-	}
 }

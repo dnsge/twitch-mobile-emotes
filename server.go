@@ -54,7 +54,11 @@ func handleRequest(cfg *app.ServerConfig) http.HandlerFunc {
 		if err != nil {
 			log.Fatalf("Parse redis URL: %v\n", err)
 		}
-		settingsRepository = storage.NewRedisSettingsRepository(cfg.RedisNamespace, opts, cfg.Context)
+		r := storage.NewRedisSettingsRepository(cfg.RedisNamespace, opts, cfg.Context)
+		if err := r.Ping(); err != nil {
+			log.Fatalf("Failed to communicate with Redis: %v\n", err)
+		}
+		settingsRepository = r
 		log.Println("Connected to Redis")
 	}
 

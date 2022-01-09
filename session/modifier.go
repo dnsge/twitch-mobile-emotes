@@ -53,6 +53,10 @@ func injectThirdPartyEmotes(s *wsSession, msg *irc.Message, channelID string) er
 					wide = isWide(ratio)
 				}
 
+				if s.config.Debug {
+					log.Printf("found emote %q %s (wide: %t) %q\n", word, e.Type(), wide, e.LetterCode()+e.EmoteID())
+				}
+
 				cacheDestroyerPrefix := ""
 				if s.settings != nil && s.settings.CacheDestroyerKey != "" {
 					if len(s.settings.CacheDestroyerKey) != CacheDestroyerSize {

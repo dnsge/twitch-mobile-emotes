@@ -39,6 +39,13 @@ func NewWsForwarder(ctx *app.Context) *WsForwarder {
 }
 
 func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request) {
+	twitchConn, err := connectToTwitchIrc(f.ctx.Config.Context)
+	if err != nil {
+		log.Printf("Failed to connect to Twitch IRC server: %v\n", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println(err)
@@ -46,12 +53,6 @@ func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request)
 	}
 
 	defer conn.Close()
-
-	twitchConn, err := connectToTwitchIrc(f.ctx.Config.Context)
-	if err != nil {
-		log.Println(err)
-		return
-	}
 
 	session.RunWsSession(conn, twitchConn, f.ctx)
 }

@@ -50,3 +50,7 @@ func (r *RedisSettingsRepository) Save(userID string, settings *Settings) error 
 
 	return r.client.Set(r.ctx, r.key("settings:user_id:"+userID), data, 0).Err()
 }
+
+func (r *RedisSettingsRepository) Ping() error {
+	return r.client.Ping(r.ctx).Err()
+}

@@ -13,7 +13,7 @@ const (
 	twitchIrcWsURL = "wss://irc-ws.chat.twitch.tv:443"
 )
 
-func connectToTwitchIrc(ctx context.Context) (*websocket.Conn, error) {
+func ConnectToTwitchIrc(ctx context.Context) (*websocket.Conn, error) {
 	dialer := websocket.Dialer{}
 	conn, _, err := dialer.DialContext(ctx, twitchIrcWsURL, http.Header{})
 	return conn, err
@@ -39,7 +39,7 @@ func NewWsForwarder(ctx *app.Context) *WsForwarder {
 }
 
 func (f *WsForwarder) HandleWsConnection(w http.ResponseWriter, r *http.Request) {
-	twitchConn, err := connectToTwitchIrc(f.ctx.Config.Context)
+	twitchConn, err := ConnectToTwitchIrc(f.ctx.Config.Context)
 	if err != nil {
 		log.Printf("Failed to connect to Twitch IRC server: %v\n", err)
 		w.WriteHeader(http.StatusInternalServerError)

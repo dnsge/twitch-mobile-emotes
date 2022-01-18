@@ -6,13 +6,23 @@ import (
 	"github.com/dnsge/twitch-mobile-emotes/irc"
 	"github.com/dnsge/twitch-mobile-emotes/storage"
 	"github.com/gorilla/websocket"
+	"io"
 	"log"
 	"net"
 	"strings"
-	"sync"
 )
 
-func RunWsSession(clientConn, twitchConn *websocket.Conn, ctx *app.Context) {
+const CRLF = "\r\n"
+
+type WsConn interface {
+	Close() error
+	ReadMessage() (int, []byte, error)
+	WriteMessage(messageType int, data []byte) error
+	NextReader() (int, io.Reader, error)
+	NextWriter(messageType int) (io.WriteCloser, error)
+}
+
+func RunWsSession(clientConn, twitchConn WsConn, ctx *app.Context) {
 	session := &wsSession{
 		config:             ctx.Config,
 		clientConn:         clientConn,
@@ -35,8 +45,8 @@ func RunWsSession(clientConn, twitchConn *websocket.Conn, ctx *app.Context) {
 
 type wsSession struct {
 	config             *app.ServerConfig
-	clientConn         *websocket.Conn
-	twitchConn         *websocket.Conn
+	clientConn         WsConn
+	twitchConn         WsConn
 	emoteStore         *emotes.EmoteStore
 	imageCache         *emotes.ImageFileCache
 	settingsRepository storage.SettingsRepository
@@ -74,117 +84,119 @@ func (s *wsSession) showGifs() bool {
 }
 
 func (s *wsSession) run() {
-	wg := &sync.WaitGroup{}
-	wg.Add(2)
+	twitchChan := make(chan error, 1)
+	clientChan := make(chan error, 1)
+	go proxyConnections(s.clientConn, s.twitchConn, twitchChan, s.modifyTwitchMessage) // incoming messages from twitch
+	go proxyConnections(s.twitchConn, s.clientConn, clientChan, s.modifyClientMessage) // outgoing messages from user
 
-	go s.clientReadLoop(wg)
-	go s.clientWriteLoop(wg)
+	var err error
+	var errorMessage string
+	select {
+	case err = <-twitchChan:
+		errorMessage = "Error proxying from twitch to client: %v\n"
+	case err = <-clientChan:
+		errorMessage = "Error proxying from client to twitch: %v\n"
+	case <-s.config.Context.Done():
+		s.clientConn.Close()
+		s.twitchConn.Close()
+		return
+	}
 
-	wg.Wait()
-}
-
-func (s *wsSession) clientReadLoop(wg *sync.WaitGroup) { // read from proxy and write to twitch
-	defer wg.Done()
-	for {
-		mt, p, err := s.clientConn.ReadMessage()
-		if err != nil {
-			if !isCloseError(err) {
-				log.Printf("client conn read error: %v\n", err)
-			}
-			s.twitchConn.Close()
-			return
-		}
-
-		for _, line := range strings.Split(string(p), "\r\n") {
-			if line == "" {
-				continue
-			}
-
-			msg, err := irc.ParseMessage(line)
-			if err != nil {
-				log.Printf("parse irc message: %v\n", err)
-				if !s.writeRawTwitchMessage(mt, p) {
-					return
-				}
-				continue
-			}
-
-			passOn, modified, err := s.handleClientMessage(msg)
-			if err != nil {
-				log.Printf("handle irc message: %v\n", err)
-				if !s.writeRawTwitchMessage(mt, p) {
-					return
-				}
-				continue
-			}
-
-			if !passOn {
-				continue
-			}
-
-			var success bool
-			if modified {
-				success = s.writeTwitchMessage(mt, msg)
-			} else {
-				success = s.writeRawTwitchMessage(mt, p)
-			}
-
-			if !success {
-				return
-			}
-		}
+	if closeErr, ok := err.(*websocket.CloseError); !ok || closeErr.Code == websocket.CloseAbnormalClosure {
+		log.Printf(errorMessage, err)
 	}
 }
 
-func (s *wsSession) clientWriteLoop(wg *sync.WaitGroup) { // read from twitch and write to proxy
-	defer wg.Done()
-	for {
-		mt, p, err := s.twitchConn.ReadMessage()
-		if err != nil {
-			if !isCloseError(err) {
-				log.Printf("twitch conn read error: %v\n", err)
-			}
-			s.clientConn.Close()
-			return
+func (s *wsSession) modifyTwitchMessage(data []byte, writer io.Writer) error {
+	// sometimes twitch sends multiple messages at once, so loop over each line
+	for _, line := range strings.Split(string(data), CRLF) {
+		if line == "" {
+			continue
 		}
 
-		// sometimes twitch sends multiple messages at once, so loop over each line
-		for _, line := range strings.Split(string(p), "\r\n") {
-			if line == "" {
-				continue
-			}
+		msg, err := irc.ParseMessage(line)
+		if err != nil {
+			log.Printf("parse twitch irc message: %v\n", err)
 
-			msg, err := irc.ParseMessage(line)
-			if err != nil {
-				log.Printf("parse irc message: %v\n", err)
-				if !s.writeRawClientMessage(mt, p) {
-					return
-				}
-				continue
+			// Attempt to write the single message line and continue
+			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
+				return err
 			}
+			continue
+		}
 
-			modified, err := s.handleTwitchMessage(msg)
+		modified, err := s.handleTwitchMessage(msg)
+		if err != nil {
+			log.Printf("handle twitch irc message: %v\n", err)
 
-			if err != nil {
-				log.Printf("handle irc message: %v\n", err)
-				if !s.writeRawClientMessage(mt, p) {
-					return
-				}
-				continue
+			// Attempt to write the single message line and continue
+			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
+				return err
 			}
+			continue
+		}
 
-			var success bool
-			if modified {
-				success = s.writeClientMessage(mt, msg)
-			} else {
-				success = s.writeRawClientMessage(mt, p)
-			}
+		var rawMessage []byte
+		if modified {
+			rawMessage = []byte(msg.String() + CRLF)
+		} else {
+			rawMessage = []byte(line + CRLF)
+		}
 
-			if !success {
-				return
-			}
+		if _, err := writer.Write(rawMessage); err != nil {
+			return err
 		}
 	}
+
+	return nil
+}
+
+func (s *wsSession) modifyClientMessage(data []byte, writer io.Writer) error {
+	for _, line := range strings.Split(string(data), CRLF) {
+		if line == "" {
+			continue
+		}
+
+		msg, err := irc.ParseMessage(line)
+		if err != nil {
+			log.Printf("parse client irc message: %v\n", err)
+
+			// Attempt to write the single message line and continue
+			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
+				return err
+			}
+			continue
+		}
+
+		passOn, modified, err := s.handleClientMessage(msg)
+		if err != nil {
+			log.Printf("handle client irc message: %v\n", err)
+
+			// Attempt to write the single message line and continue
+			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if !passOn {
+			// Skip writing message
+			continue
+		}
+
+		var rawMessage []byte
+		if modified {
+			rawMessage = []byte(msg.String() + CRLF)
+		} else {
+			rawMessage = []byte(line + CRLF)
+		}
+
+		if _, err := writer.Write(rawMessage); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Writes a message to the client connection. Returns whether it succeeded.

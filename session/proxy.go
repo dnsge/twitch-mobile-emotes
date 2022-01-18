@@ -1,11 +1,13 @@
 package session
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"io"
 )
 
-type MessageModifier func(data []byte, writer io.Writer) error
+type MessageModifier func(reader io.Reader, writer io.Writer) *RWError
 
 func makeCloseMessageFromError(err error) []byte {
 	if e, ok := err.(*websocket.CloseError); ok && e.Code != websocket.CloseNoStatusReceived {
@@ -15,17 +17,23 @@ func makeCloseMessageFromError(err error) []byte {
 	}
 }
 
-func writeWithModifier(conn WsConn, msgType int, msg []byte, modifier MessageModifier) error {
-	connWriter, err := conn.NextWriter(msgType)
+func processMessageWithModifier(dst, src WsConn, modifier MessageModifier) *RWError {
+	msgType, msgBytes, err := src.ReadMessage()
 	if err != nil {
+		return ReadError(err)
+	}
+
+	connWriter, err := dst.NextWriter(msgType)
+	if err != nil {
+		return WriteError(err)
+	}
+
+	buf := bytes.NewBuffer(msgBytes)
+	if err := modifier(buf, connWriter); err != nil {
 		return err
 	}
 
-	if err := modifier(msg, connWriter); err != nil {
-		return err
-	}
-
-	return connWriter.Close()
+	return WriteError(connWriter.Close())
 }
 
 // proxyConnections copies websocket messages from src to dst, calling modifier on messages.
@@ -34,26 +42,63 @@ func writeWithModifier(conn WsConn, msgType int, msg []byte, modifier MessageMod
 func proxyConnections(dst, src WsConn, errC chan<- error, modifier MessageModifier) {
 	defer src.Close()
 	for {
-		msgType, msg, err := src.ReadMessage()
-		if err != nil {
-			closeMsg := makeCloseMessageFromError(err)
-			_ = dst.WriteMessage(websocket.CloseMessage, closeMsg)
-			errC <- err
-			break
-		}
-
-		var writeError error
+		var rwErr *RWError
 		if modifier != nil {
-			writeError = writeWithModifier(dst, msgType, msg, modifier)
+			rwErr = processMessageWithModifier(dst, src, modifier)
 		} else {
-			writeError = dst.WriteMessage(msgType, msg)
+			msgType, msg, err := src.ReadMessage()
+			if err != nil {
+				rwErr = ReadError(err)
+			} else {
+				rwErr = WriteError(dst.WriteMessage(msgType, msg))
+			}
 		}
 
-		if writeError != nil {
-			closeMsg := makeCloseMessageFromError(err)
+		if rwErr.ReadError != nil {
+			closeMsg := makeCloseMessageFromError(rwErr.ReadError)
+			_ = dst.WriteMessage(websocket.CloseMessage, closeMsg)
+			errC <- rwErr.ReadError
+			break
+		} else if rwErr.WriteError != nil {
+			closeMsg := makeCloseMessageFromError(rwErr.WriteError)
 			_ = src.WriteMessage(websocket.CloseMessage, closeMsg)
-			errC <- err
+			errC <- rwErr.WriteError
 			break
 		}
 	}
+}
+
+type RWError struct {
+	ReadError  error
+	WriteError error
+}
+
+func ReadError(err error) *RWError {
+	return &RWError{
+		ReadError:  err,
+		WriteError: nil,
+	}
+}
+
+func WriteError(err error) *RWError {
+	return &RWError{
+		ReadError:  nil,
+		WriteError: err,
+	}
+}
+
+func (rw *RWError) Error() string {
+	if rw.ReadError != nil && rw.WriteError != nil {
+		return fmt.Sprintf("read: %v | write: %v\n", rw.ReadError, rw.WriteError)
+	} else if rw.ReadError != nil {
+		return fmt.Sprintf("read: %v", rw.ReadError)
+	} else if rw.WriteError != nil {
+		return fmt.Sprintf("write: %v", rw.WriteError)
+	} else {
+		return fmt.Sprintf("no error")
+	}
+}
+
+func (rw *RWError) Ok() bool {
+	return rw.ReadError == nil && rw.WriteError == nil
 }

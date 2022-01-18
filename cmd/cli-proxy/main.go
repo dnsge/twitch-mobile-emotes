@@ -21,6 +21,7 @@ import (
 var (
 	auth           = flag.String("auth", "", "AUTH to pass to Twitch IRC (format of oauth:xxx)")
 	nick           = flag.String("nick", "", "NICK to pass to Twitch IRC (Twitch username)")
+	requestCaps    = flag.Bool("req-caps", true, "Request Twitch capabilities")
 	redisConn      = flag.String("redis-url", "", "Redis connection string")
 	redisNamespace = flag.String("redis-namespace", "tme", "Redis key namespace")
 )
@@ -97,8 +98,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *requestCaps {
+		if err := twitchConn.WriteMessage(websocket.TextMessage, []byte("CAP REQ :twitch.tv/tags twitch.tv/commands\r\n")); err != nil {
+			log.Printf("Failed to request CAPS from Twitch IRC server: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
 	wg.Wait()
-	//twitchConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage())
 }
 
 func signalInterrupterContext() context.Context {

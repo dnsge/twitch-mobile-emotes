@@ -11,16 +11,17 @@ import (
 type ConsoleConn struct {
 	OnClose func()
 
-	input        io.ReadCloser
+	input        io.Reader
 	output       io.WriteCloser
 	inputScanner *bufio.Scanner
 }
 
 func NewConsoleConn() *ConsoleConn {
+	input := os.Stdin
 	return &ConsoleConn{
 		OnClose:      nil,
-		input:        io.NopCloser(os.Stdin),
-		inputScanner: bufio.NewScanner(os.Stdin),
+		input:        input,
+		inputScanner: bufio.NewScanner(input),
 		output:       &nopCloseWriter{os.Stdout},
 	}
 }

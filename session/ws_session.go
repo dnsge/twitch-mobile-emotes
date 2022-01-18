@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bufio"
 	"github.com/dnsge/twitch-mobile-emotes/app"
 	"github.com/dnsge/twitch-mobile-emotes/emotes"
 	"github.com/dnsge/twitch-mobile-emotes/irc"
@@ -9,7 +10,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"strings"
 )
 
 const CRLF = "\r\n"
@@ -107,9 +107,11 @@ func (s *wsSession) run() {
 	}
 }
 
-func (s *wsSession) modifyTwitchMessage(data []byte, writer io.Writer) error {
+func (s *wsSession) modifyTwitchMessage(reader io.Reader, writer io.Writer) *RWError {
 	// sometimes twitch sends multiple messages at once, so loop over each line
-	for _, line := range strings.Split(string(data), CRLF) {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if line == "" {
 			continue
 		}
@@ -120,7 +122,7 @@ func (s *wsSession) modifyTwitchMessage(data []byte, writer io.Writer) error {
 
 			// Attempt to write the single message line and continue
 			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
-				return err
+				return WriteError(err)
 			}
 			continue
 		}
@@ -131,7 +133,7 @@ func (s *wsSession) modifyTwitchMessage(data []byte, writer io.Writer) error {
 
 			// Attempt to write the single message line and continue
 			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
-				return err
+				return WriteError(err)
 			}
 			continue
 		}
@@ -144,15 +146,17 @@ func (s *wsSession) modifyTwitchMessage(data []byte, writer io.Writer) error {
 		}
 
 		if _, err := writer.Write(rawMessage); err != nil {
-			return err
+			return WriteError(err)
 		}
 	}
 
-	return nil
+	return ReadError(scanner.Err())
 }
 
-func (s *wsSession) modifyClientMessage(data []byte, writer io.Writer) error {
-	for _, line := range strings.Split(string(data), CRLF) {
+func (s *wsSession) modifyClientMessage(reader io.Reader, writer io.Writer) *RWError {
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if line == "" {
 			continue
 		}
@@ -163,7 +167,7 @@ func (s *wsSession) modifyClientMessage(data []byte, writer io.Writer) error {
 
 			// Attempt to write the single message line and continue
 			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
-				return err
+				return WriteError(err)
 			}
 			continue
 		}
@@ -174,7 +178,7 @@ func (s *wsSession) modifyClientMessage(data []byte, writer io.Writer) error {
 
 			// Attempt to write the single message line and continue
 			if _, err := writer.Write([]byte(line + CRLF)); err != nil {
-				return err
+				return WriteError(err)
 			}
 			continue
 		}
@@ -192,16 +196,16 @@ func (s *wsSession) modifyClientMessage(data []byte, writer io.Writer) error {
 		}
 
 		if _, err := writer.Write(rawMessage); err != nil {
-			return err
+			return WriteError(err)
 		}
 	}
 
-	return nil
+	return ReadError(scanner.Err())
 }
 
 // Writes a message to the client connection. Returns whether it succeeded.
 func (s *wsSession) writeClientMessage(mt int, msg *irc.Message) bool {
-	msgBytes := []byte(msg.String() + "\r\n") // add CRLF to end of string
+	msgBytes := []byte(msg.String() + CRLF) // add CRLF to end of string
 	if err := s.clientConn.WriteMessage(mt, msgBytes); err != nil {
 		if !isCloseError(err) {
 			log.Printf("client conn write error: %v\n", err)
@@ -226,7 +230,7 @@ func (s *wsSession) writeRawClientMessage(mt int, msg []byte) bool {
 
 // Writes a message to the twitch connection. Returns whether it succeeded.
 func (s *wsSession) writeTwitchMessage(mt int, msg *irc.Message) bool {
-	msgBytes := []byte(msg.String() + "\r\n") // add CRLF to end of string
+	msgBytes := []byte(msg.String() + CRLF) // add CRLF to end of string
 	if err := s.twitchConn.WriteMessage(mt, msgBytes); err != nil {
 		if !isCloseError(err) {
 			log.Printf("twitch conn write error: %v\n", err)

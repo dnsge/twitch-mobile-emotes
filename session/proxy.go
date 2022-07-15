@@ -29,7 +29,7 @@ func processMessageWithModifier(dst, src WsConn, modifier MessageModifier) *RWEr
 	}
 
 	buf := bytes.NewBuffer(msgBytes)
-	if err := modifier(buf, connWriter); err != nil {
+	if err := modifier(buf, connWriter); !err.Ok() {
 		return err
 	}
 

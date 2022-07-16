@@ -1,7 +1,7 @@
 # twitch-mobile-emotes
 
 An HTTP server that intercepts and modifies Twitch's IRC-over-WebSockets chat and its emoticon CDN to introduce
-BetterTTV and FrankerFaceZ custom emotes to native chats, specifically on mobile.
+BetterTTV, FrankerFaceZ, and SevenTV custom emotes to native chats, specifically on mobile.
 
 ![GIF of different emotes](.github/mobile_emotes.gif)
 

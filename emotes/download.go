@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"golang.org/x/image/webp"
 	"image"
 	"image/gif"
 	"image/png"
@@ -17,6 +18,15 @@ import (
 	"sync"
 	"time"
 )
+
+func ShouldNotCache(emote Emote) bool {
+	// webp images seem to be undecodable? TODO: Review in future
+	if emote.Type() == "image/webp" {
+		return true
+	} else {
+		return false
+	}
+}
 
 func requestEmote(emote Emote, size ImageSize) (image.Image, error) {
 	url := emote.URL(size)
@@ -40,6 +50,13 @@ func requestEmote(emote Emote, size ImageSize) (image.Image, error) {
 			return nil, err
 		}
 		img = selectGifFrame(emote, gifImg)
+	case "webp":
+	case "image/webp":
+		webpImg, err := webp.Decode(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+		img = webpImg
 	default:
 		return nil, fmt.Errorf("unsupported emote type %q", emote.Type())
 	}
@@ -375,6 +392,15 @@ func (c *ImageFileCache) GetEmoteAspectRatio(emote Emote) (float64, error) {
 		return val, nil
 	}
 
+	if stv, ok := emote.(*SevenTVEmote); ok {
+		// SevenTV provides this emote data in API responses
+		if len(stv.Widths) > 0 {
+			calculated := float64(stv.Widths[len(stv.Widths)-1]) / float64(stv.Heights[len(stv.Heights)-1])
+			c.aspectRatioMap[key] = calculated
+			return calculated, nil
+		}
+	}
+
 	url := emote.URL(ImageSizeSmall)
 	resp, err := client.Get(url)
 	if err != nil {
@@ -383,19 +409,28 @@ func (c *ImageFileCache) GetEmoteAspectRatio(emote Emote) (float64, error) {
 	defer resp.Body.Close()
 
 	var cfg image.Config
-	if emote.Type() == "png" {
+
+	switch emote.Type() {
+	case "png":
 		c, err := png.DecodeConfig(resp.Body)
 		if err != nil {
 			return 0, err
 		}
 		cfg = c
-	} else if emote.Type() == "gif" {
+	case "gif":
 		c, err := gif.DecodeConfig(resp.Body)
 		if err != nil {
 			return 0, err
 		}
 		cfg = c
-	} else {
+	case "webp":
+	case "image/webp":
+		c, err := webp.DecodeConfig(resp.Body)
+		if err != nil {
+			return 0, err
+		}
+		cfg = c
+	default:
 		return 0, fmt.Errorf("unsupported emote type %q", emote.Type())
 	}
 

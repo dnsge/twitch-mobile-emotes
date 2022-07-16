@@ -65,7 +65,7 @@ func injectThirdPartyEmotes(s *wsSession, msg *irc.Message, channelID string) er
 					cacheDestroyerPrefix = "d" + s.settings.CacheDestroyerKey
 				}
 
-				if wide && wordLen >= 3 {
+				if wide && wordLen >= 3 && !emotes.ShouldNotCache(e) {
 					emoteTag.Add(cacheDestroyerPrefix+leftPrefix+e.LetterCode()+e.EmoteID(), [2]int{i, i + 1})
 					emoteTag.Add(cacheDestroyerPrefix+rightPrefix+e.LetterCode()+e.EmoteID(), [2]int{i + 2, i + wordLen - 1})
 					go func() {
@@ -76,7 +76,7 @@ func injectThirdPartyEmotes(s *wsSession, msg *irc.Message, channelID string) er
 					}()
 				} else {
 					emoteTag.Add(cacheDestroyerPrefix+e.LetterCode()+e.EmoteID(), [2]int{i, i + wordLen - 1})
-					if s.imageCache != nil {
+					if s.imageCache != nil && !emotes.ShouldNotCache(e) {
 						go func() {
 							err := s.imageCache.DownloadToCache(e, emotes.ImageSizeLarge)
 							if err != nil {

@@ -1,7 +1,6 @@
 package emotes
 
 import (
-	"strconv"
 	"sync"
 	"time"
 )
@@ -10,23 +9,20 @@ const (
 	cachedEmoteDuration = time.Hour
 )
 
-type ChannelEmotes struct {
-	bttv []*BttvEmote
-	ffz  []*FfzEmote
-}
-
+type ProviderEmotes map[rune][]Emote
 type WordMap map[string]Emote
 
 type EmoteStore struct {
+	providers []Provider
+
 	// Globally available emotes
-	globalBttv []*BttvEmote
-	globalFfz  []*FfzEmote
+	globalEmotes ProviderEmotes
 
 	// Emotes that were requested but not found in any other channel
-	danglingEmotes *ChannelEmotes
+	danglingEmotes ProviderEmotes
 
 	// Emotes belonging to channels
-	channels     map[string]*ChannelEmotes
+	channels     map[string]ProviderEmotes
 	channelTimes map[string]time.Time
 	wordMaps     map[string]WordMap
 
@@ -35,10 +31,14 @@ type EmoteStore struct {
 
 func NewEmoteStore() *EmoteStore {
 	return &EmoteStore{
-		globalBttv:     nil,
-		globalFfz:      nil,
-		danglingEmotes: &ChannelEmotes{},
-		channels:       make(map[string]*ChannelEmotes),
+		providers: []Provider{
+			&BttvProvider{},
+			&FfzProvider{},
+			&SevenTVProvider{},
+		},
+		globalEmotes:   make(ProviderEmotes),
+		danglingEmotes: make(ProviderEmotes),
+		channels:       make(map[string]ProviderEmotes),
 		channelTimes:   make(map[string]time.Time),
 		wordMaps:       make(map[string]WordMap),
 	}
@@ -47,22 +47,19 @@ func NewEmoteStore() *EmoteStore {
 func (s *EmoteStore) Init() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	globalB, err := GetGlobalBTTVEmotes()
-	if err != nil {
-		return err
-	}
-	s.globalBttv = globalB
 
-	globalF, err := GetGlobalFFZEmotes()
-	if err != nil {
-		return err
+	for _, provider := range s.providers {
+		globals, err := provider.LoadGlobalEmotes()
+		if err != nil {
+			return err
+		}
+		s.globalEmotes[provider.IdentifierCode()] = globals
 	}
-	s.globalFfz = globalF
 
 	return nil
 }
 
-// Loads and caches BTTV and FFZ emotes for a channel
+// LoadIfNotLoaded loads and caches BTTV and FFZ emotes for a channel
 func (s *EmoteStore) LoadIfNotLoaded(channelID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -84,135 +81,116 @@ func (s *EmoteStore) Load(channelID string) error {
 }
 
 func (s *EmoteStore) load(channelID string) error {
-	bttv, err := GetChannelBTTVEmotes(channelID)
-	if err != nil {
-		return err
-	}
-	ffz, err := GetChannelFFZEmotes(channelID)
-	if err != nil {
-		return err
+	channelEmotes := make(ProviderEmotes)
+	for _, provider := range s.providers {
+		code := provider.IdentifierCode()
+		emotes, err := provider.LoadChannelEmotes(channelID)
+		if err != nil {
+			return err
+		}
+		channelEmotes[code] = emotes
 	}
 
-	s.channels[channelID] = &ChannelEmotes{
-		bttv: bttv,
-		ffz:  ffz,
-	}
+	s.channels[channelID] = channelEmotes
 	s.channelTimes[channelID] = time.Now()
 	s.updateWordMap(channelID)
 	return nil
 }
 
-func (s *EmoteStore) GetChannelEmotes(channelID string) (*ChannelEmotes, bool) {
+func (s *EmoteStore) GetChannelEmotes(channelID string) ([]Emote, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	e, ok := s.channels[channelID]
-	return e, ok
-}
 
-func (s *EmoteStore) GetBttvEmote(emoteID string) (*BttvEmote, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for _, e := range s.globalBttv {
-		if e.ID == emoteID {
-			return e, true
-		}
+	var emotes []Emote
+	for _, v := range e {
+		emotes = append(emotes, v...)
 	}
 
-	for _, c := range s.channels {
-		for _, e := range c.bttv {
-			if e.ID == emoteID {
+	return emotes, ok
+}
+
+func (s *EmoteStore) ProviderFromCode(identifierCode rune) (Provider, bool) {
+	for _, p := range s.providers {
+		if p.IdentifierCode() == identifierCode {
+			return p, true
+		}
+	}
+	return nil, false
+}
+
+func (s *EmoteStore) GetEmote(identifierCode rune, emoteID string) (Emote, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if globalList, ok := s.globalEmotes[identifierCode]; !ok {
+		return nil, false
+	} else {
+		// Check the provider's global emotes
+		for _, e := range globalList {
+			if e.EmoteID() == emoteID {
 				return e, true
 			}
 		}
 	}
 
-	for _, e := range s.danglingEmotes.bttv {
-		if e.ID == emoteID {
-			return e, true
-		}
-	}
-
-	e, err := GetSpecificBTTVEmote(emoteID)
-	if err != nil {
-		return nil, false
-	} else {
-		s.danglingEmotes.bttv = append(s.danglingEmotes.bttv, e)
-		return e, true
-	}
-}
-
-func (s *EmoteStore) GetFfzEmote(emoteID string) (*FfzEmote, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	intID, err := strconv.Atoi(emoteID)
-	if err != nil {
-		return nil, false
-	}
-
-	for _, e := range s.globalFfz {
-		if e.ID == intID {
-			return e, true
-		}
-	}
-
-	for _, c := range s.channels {
-		for _, e := range c.ffz {
-			if e.ID == intID {
-				return e, true
+	for _, channel := range s.channels {
+		if channelList, ok := channel[identifierCode]; !ok {
+			return nil, false
+		} else {
+			// Check the provider's channel emotes
+			for _, e := range channelList {
+				if e.EmoteID() == emoteID {
+					return e, true
+				}
 			}
 		}
 	}
 
-	for _, e := range s.danglingEmotes.ffz {
-		if e.ID == intID {
-			return e, true
-		}
+	provider, ok := s.ProviderFromCode(identifierCode)
+	if !ok {
+		return nil, false
 	}
 
-	e, err := GetSpecificFFZEmote(emoteID)
+	e, err := provider.LoadSpecificEmote(emoteID)
 	if err != nil {
 		return nil, false
 	} else {
-		s.danglingEmotes.ffz = append(s.danglingEmotes.ffz, e)
+		s.danglingEmotes[identifierCode] = append(s.danglingEmotes[identifierCode], e)
 		return e, true
 	}
 }
 
 func (s *EmoteStore) updateWordMap(channelID string) {
-	// priority:
-	// FFZ Channel
-	// BTTV Channel
-	// FFZ Global
-	// BTTV Global
-	// Work in reverse order so later ones override earlier ones
+	// Word map priority is the order of providers.
+	// Work in reverse order so later ones override earlier ones!
 
 	wordMap := make(WordMap)
-	for _, e := range s.globalBttv {
-		if old, found := wordMap[e.Code]; found { // prioritize gif emotes of same name
-			if old.Type() != "gif" {
-				wordMap[e.Code] = e
-			}
-		} else {
-			wordMap[e.Code] = e
+
+	for i := len(s.providers) - 1; i >= 0; i-- {
+		identifierCode := s.providers[i].IdentifierCode()
+		emotes, ok := s.globalEmotes[identifierCode]
+		if !ok {
+			continue
 		}
-	}
-	for _, e := range s.globalFfz {
-		wordMap[e.Name] = e
+
+		for _, e := range emotes {
+			wordMap[e.TypedName()] = e
+		}
 	}
 
 	channelEmotes, ok := s.channels[channelID]
 	if ok {
-		for _, e := range channelEmotes.bttv {
-			if old, found := wordMap[e.Code]; found { // prioritize gif emotes of same name
-				if old.Type() != "gif" {
-					wordMap[e.Code] = e
-				}
-			} else {
-				wordMap[e.Code] = e
+		for i := len(s.providers) - 1; i >= 0; i-- {
+			identifierCode := s.providers[i].IdentifierCode()
+			emotes, ok := channelEmotes[identifierCode]
+			if !ok {
+				continue
 			}
-		}
-		for _, e := range channelEmotes.ffz {
-			wordMap[e.Name] = e
+
+			for _, e := range emotes {
+				wordMap[e.TypedName()] = e
+			}
 		}
 	}
 

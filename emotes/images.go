@@ -2,8 +2,11 @@ package emotes
 
 import "fmt"
 
-const bttvCdnUrlFormat = "https://cdn.betterttv.net/emote/%s/%s"
-const ffzCdnUrlFormat = "https://cdn.betterttv.net/frankerfacez_emote/%s/%s"
+const (
+	bttvCdnUrlFormat    = "https://cdn.betterttv.net/emote/%s/%s"
+	ffzCdnUrlFormat     = "https://cdn.betterttv.net/frankerfacez_emote/%s/%s"
+	sevenTVCDNUrlFormat = "https://cdn.7tv.app/emote/%s/%s"
+)
 
 type ImageSize int
 
@@ -37,6 +40,10 @@ func (s ImageSize) FfzString() string {
 	default:
 		panic("Unknown emote size")
 	}
+}
+
+func (s ImageSize) SevenTVString() string {
+	return s.FfzString() // use same behavior
 }
 
 func FormatBTTVEmote(id string, size ImageSize) string {
@@ -83,4 +90,16 @@ func (f *FfzEmote) URL(size ImageSize) string {
 	}
 
 	return "https:" + u // FFZ image URLs don't have a schema attached
+}
+
+func (s *SevenTVEmote) URL(size ImageSize) string {
+	expectedSizeID := size.SevenTVString()
+	for _, sizeURLPair := range s.URLs {
+		if sizeURLPair[0] == expectedSizeID {
+			return sizeURLPair[1]
+		}
+	}
+
+	// We didn't find it, build url based on blind luck? Will probably work.
+	return fmt.Sprintf(sevenTVCDNUrlFormat, s.ID, expectedSizeID+"x")
 }

@@ -116,33 +116,14 @@ func commonHandler(w http.ResponseWriter, r *http.Request, store *emotes.EmoteSt
 		id = id[2:]
 	}
 
-	var emote emotes.Emote
-	switch code {
-	case 'b':
-		e, found := store.GetBttvEmote(id)
-		if found {
-			emote = e
-		} else {
-			log.Printf("Requested BTTV emote %q but wasn't found\n", id)
-			http.NotFound(w, r)
-			return
-		}
-	case 'f':
-		e, found := store.GetFfzEmote(id)
-		if found {
-			emote = e
-		} else {
-			log.Printf("Requested FFZ emote %q but wasn't found\n", id)
-			http.NotFound(w, r)
-			return
-		}
-	default:
-		log.Printf("Requested emote of unknown type %q\n", code)
+	emote, found := store.GetEmote(rune(code), id)
+	if !found {
+		log.Printf("Requested emote with code %q id %q but wasn't found\n", rune(code), id)
 		http.NotFound(w, r)
 		return
 	}
 
-	if cache == nil || (gifSupport && emote.Type() == "gif") { // fallback to bttv cdn
+	if cache == nil || (gifSupport && !isPNG(emote)) || emotes.ShouldNotCache(emote) { // fallback to emote cdn
 		http.Redirect(w, r, emote.URL(size), http.StatusFound)
 	} else { // use our own cache
 		w.Header().Set("Content-Type", "image/png")
@@ -159,4 +140,8 @@ func commonHandler(w http.ResponseWriter, r *http.Request, store *emotes.EmoteSt
 			w.WriteHeader(http.StatusBadRequest)
 		}
 	}
+}
+
+func isPNG(emote emotes.Emote) bool {
+	return emote.Type() == "png" || emote.Type() == "image/png"
 }

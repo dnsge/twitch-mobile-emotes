@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.17-alpine AS build
+FROM golang:1.18-alpine AS build
 
 WORKDIR /go/src/github.com/dnsge/twitch-mobile-emotes
 

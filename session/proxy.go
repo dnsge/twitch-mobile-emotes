@@ -54,7 +54,9 @@ func proxyConnections(dst, src WsConn, errC chan<- error, modifier MessageModifi
 			}
 		}
 
-		if rwErr.ReadError != nil {
+		if rwErr.Ok() {
+			continue
+		} else if rwErr.ReadError != nil {
 			closeMsg := makeCloseMessageFromError(rwErr.ReadError)
 			_ = dst.WriteMessage(websocket.CloseMessage, closeMsg)
 			errC <- rwErr.ReadError
@@ -74,6 +76,10 @@ type RWError struct {
 }
 
 func ReadError(err error) *RWError {
+	if err == nil {
+		return nil
+	}
+
 	return &RWError{
 		ReadError:  err,
 		WriteError: nil,
@@ -81,6 +87,10 @@ func ReadError(err error) *RWError {
 }
 
 func WriteError(err error) *RWError {
+	if err == nil {
+		return nil
+	}
+
 	return &RWError{
 		ReadError:  nil,
 		WriteError: err,
@@ -100,5 +110,9 @@ func (rw *RWError) Error() string {
 }
 
 func (rw *RWError) Ok() bool {
+	if rw == nil {
+		return true
+	}
+
 	return rw.ReadError == nil && rw.WriteError == nil
 }
